@@ -3,10 +3,13 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Safe Space | Your Anonymous Sanctuary</title>
+<title>CareNexus | Anonymous Emotional Support & Peer Mentorship</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/js/aiChatBot.js"></script>
+<script src="/js/soundscapes.js"></script>
 <script id="tailwind-config">
   tailwind.config = {
     darkMode:"class",
@@ -18,114 +21,925 @@
       "primary-container":"#b9ece7","on-primary-container":"#285a56",
       "primary":"#3c6d69","primary-dim":"#2f605d","surface-container":"#f6f4ea"
     },fontFamily:{"headline":["Manrope"],"body":["Inter"],"label":["Inter"]},
-    borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"1.5rem","full":"9999px"}}}
+    borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"1.5rem","2xl":"2rem","full":"9999px"}}}
   }
 </script>
 <style>
-  .ethereal-glow{background:radial-gradient(circle at 50% 50%,rgba(185,236,231,0.4) 0%,rgba(253,255,218,0) 70%);}
+  .ethereal-glow{background:radial-gradient(circle at 50% 50%,rgba(185,236,231,0.6) 0%,rgba(253,255,218,0) 75%);}
+  .gradient-text{background:linear-gradient(135deg, #2f605d 0%, #3c6d69 50%, #1e4542 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
   .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}
-  body{min-height:max(884px,100dvh);}
+  body{min-height:100dvh;background:#fdffda;}
+  @keyframes float { 0%,100%{transform:translateY(0px);} 50%{transform:translateY(-10px);} }
+  .animate-float{animation:float 4s ease-in-out infinite;}
 </style>
 </head>
 <body class="bg-surface text-on-surface font-body overflow-x-hidden">
 
-<nav class="w-full top-0 sticky z-50 flex justify-between items-center px-6 py-4 bg-[#fdffda]">
+<!-- Floating Rounded Glass Navigation Header -->
+<header class="w-[96%] max-w-[1550px] mx-auto sticky top-4 z-50 bg-[#fdffda]/80 backdrop-blur-xl border border-outline-variant/20 px-6 md:px-8 py-3.5 flex justify-between items-center rounded-full shadow-lg shadow-primary/5 transition-all">
   <div class="flex items-center gap-3">
-    <span class="material-symbols-outlined text-[#3c6d69]">spa</span>
-    <span class="font-['Manrope'] font-bold text-[#3c6d69] tracking-tight text-lg">Safe Space</span>
+    <div class="w-10 h-10 rounded-xl bg-primary-container text-primary flex items-center justify-center shadow-sm">
+      <span class="material-symbols-outlined text-2xl" style="font-variation-settings:'FILL' 1;">spa</span>
+    </div>
+    <div>
+      <span class="font-headline font-extrabold text-primary text-xl tracking-tight block">CareNexus</span>
+      <span class="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest block -mt-1">Safe Space Sanctuary</span>
+    </div>
   </div>
-  <div class="flex items-center gap-6">
-    <a class="font-label text-sm font-semibold text-primary hover:opacity-80 transition-opacity" href="login.html">Login</a>
-    <a class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-label text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm" href="register.html">Sign Up</a>
+
+  <div class="hidden md:flex items-center gap-5 lg:gap-7 text-sm font-semibold text-on-surface-variant">
+    <button onclick="openIndexMentorsModal()" class="hover:text-primary transition-colors flex items-center gap-1.5 font-extrabold text-primary bg-primary-container/40 hover:bg-primary-container/70 px-4 py-2 rounded-full border border-primary/20 shadow-sm text-xs">
+      <span class="material-symbols-outlined text-lg">badge</span> Mentors List
+    </button>
+    <a href="#features" class="hover:text-primary transition-colors">Why CareNexus</a>
+    <button onclick="openIndexSoundscapesModal()" class="hover:text-primary transition-colors flex items-center gap-1.5 text-xs font-semibold">
+      <span class="material-symbols-outlined text-base">graphic_eq</span> Zen Soundscapes
+    </button>
+    <button onclick="openIndexReflectModal()" class="hover:text-primary transition-colors flex items-center gap-1.5 text-xs font-semibold">
+      <span class="material-symbols-outlined text-base">self_improvement</span> Reflect Studio
+    </button>
   </div>
-</nav>
 
-<main class="relative min-h-[calc(100vh-76px)] flex flex-col items-center justify-center px-6 py-12 md:py-24 overflow-hidden">
-  <div class="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] ethereal-glow rounded-full -z-10"></div>
-  <div class="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] ethereal-glow rounded-full opacity-60 -z-10"></div>
+  <div class="flex items-center gap-4">
+    <a class="font-label text-sm font-bold text-primary hover:text-primary-dim transition-colors px-3 py-2" href="login.html">Sign In</a>
+    <a class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-label text-sm font-bold hover:opacity-90 active:scale-95 transition-all shadow-md flex items-center gap-2" href="register.html">
+      Get Started <span class="material-symbols-outlined text-sm">arrow_forward</span>
+    </a>
+  </div>
+</header>
 
-  <div class="max-w-6xl w-full grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
-    <div class="md:col-span-7 flex flex-col items-start space-y-8">
-      <div class="space-y-4">
-        <span class="inline-flex items-center gap-2 px-4 py-1.5 bg-secondary-container text-on-secondary-container rounded-full text-xs font-semibold tracking-wide uppercase">
-          <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1;">lock</span>
-          100% Anonymous &amp; Secure
-        </span>
-        <h1 class="font-headline font-extrabold text-5xl md:text-7xl text-on-surface leading-[1.1] tracking-[-0.03em]">
-          You're not alone.<br/>
-          <span class="text-primary italic font-medium">Share your thoughts</span> in a safe space.
+<!-- Hero Section -->
+<main class="relative min-h-[calc(100vh-80px)] flex flex-col justify-between overflow-hidden bg-gradient-to-b from-surface via-surface-container-lowest to-surface-container-low pb-12 md:pb-16">
+  <div class="absolute top-[-10%] right-[-5%] w-[700px] h-[700px] ethereal-glow rounded-full -z-10 animate-float"></div>
+  <div class="absolute bottom-[-10%] left-[-5%] w-[700px] h-[700px] ethereal-glow rounded-full opacity-70 -z-10"></div>
+
+  <div class="max-w-[1550px] mx-auto px-6 md:px-12 pt-8 md:pt-12 pb-8 md:pb-12 w-full">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+      
+      <!-- Hero Left Column -->
+      <div class="lg:col-span-7 space-y-6">
+        
+        <!-- Live Status Pill -->
+        <div class="inline-flex items-center gap-2.5 px-4 py-2 bg-secondary-container/80 backdrop-blur-md text-on-secondary-container rounded-full text-xs font-bold border border-secondary/20 shadow-sm">
+          <span class="w-2.5 h-2.5 rounded-full bg-secondary animate-pulse"></span>
+          <span>100% Anonymous &amp; Private • 24/7 Listener Support Active</span>
+        </div>
+
+        <!-- Main Headline -->
+        <h1 class="font-headline font-extrabold text-5xl sm:text-6xl lg:text-7xl text-on-surface leading-[1.08] tracking-tight">
+          You are never alone.<br/>
+          <span class="gradient-text">A safe space</span> for your mind &amp; soul.
         </h1>
-      </div>
-      <p class="font-body text-lg md:text-xl text-on-surface-variant max-w-xl leading-relaxed">
-        A serene sanctuary for your emotions. Connect with empathetic listeners or offer your strength to others, all under the veil of complete privacy.
-      </p>
-      <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto pt-4">
-        <a href="register.html?role=user" class="group flex items-center justify-between gap-6 bg-gradient-to-br from-primary to-primary-dim text-on-primary px-8 py-6 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-[0_20px_50px_rgba(60,109,105,0.15)]">
-          <div class="text-left">
-            <span class="block font-headline text-xl font-bold">I need to talk</span>
-            <span class="block text-sm opacity-80 font-body">Find a supportive listener</span>
+
+        <!-- Subheadline -->
+        <p class="font-body text-lg md:text-xl text-on-surface-variant max-w-2xl leading-relaxed">
+          CareNexus connects you anonymously with verified peer listeners and compassionate mentors. Share your thoughts freely with zero judgment, encrypted real-time chat, and instant support.
+        </p>
+
+        <!-- CTA Buttons -->
+        <div class="flex flex-col sm:flex-row gap-4 pt-1">
+          <a href="register.html?role=user" class="group flex items-center justify-between gap-6 bg-gradient-to-br from-primary to-primary-dim text-on-primary px-8 py-5 rounded-2xl transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-xl hover:shadow-2xl">
+            <div class="text-left">
+              <span class="block font-headline text-xl font-bold">I Need Support</span>
+              <span class="block text-xs opacity-90 font-body">Connect anonymously with a mentor</span>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center group-hover:translate-x-1 transition-transform">
+              <span class="material-symbols-outlined text-2xl">forum</span>
+            </div>
+          </a>
+
+          <a href="register.html?role=mentor" class="group flex items-center justify-between gap-6 bg-surface-container-lowest text-primary px-8 py-5 rounded-2xl border border-outline-variant/20 transition-all duration-300 hover:bg-white hover:scale-[1.02] active:scale-95 shadow-sm hover:shadow-md">
+            <div class="text-left">
+              <span class="block font-headline text-xl font-bold">I Want to Listen</span>
+              <span class="block text-xs text-on-surface-variant font-body">Become a verified peer guide</span>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-primary-container/30 flex items-center justify-center group-hover:translate-x-1 transition-transform">
+              <span class="material-symbols-outlined text-2xl text-primary">volunteer_activism</span>
+            </div>
+          </a>
+        </div>
+
+        <!-- Trust Markers -->
+        <div class="pt-4 border-t border-outline-variant/15 flex flex-wrap items-center gap-8 text-xs font-semibold text-on-surface-variant">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-base">lock</span>
+            <span>Zero Data Selling</span>
           </div>
-          <span class="material-symbols-outlined text-3xl group-hover:translate-x-1 transition-transform">chat_bubble</span>
-        </a>
-        <a href="register.html?role=mentor" class="group flex items-center justify-between gap-6 bg-surface-container-lowest text-primary px-8 py-6 rounded-xl border border-outline-variant/15 transition-all duration-300 hover:bg-white hover:scale-[1.02] active:scale-95 shadow-sm">
-          <div class="text-left">
-            <span class="block font-headline text-xl font-bold">I want to listen</span>
-            <span class="block text-sm text-on-surface-variant font-body">Become a peer mentor</span>
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-base">verified</span>
+            <span>Verified Peer Credentials</span>
           </div>
-          <span class="material-symbols-outlined text-3xl text-primary/60 group-hover:translate-x-1 transition-transform">volunteer_activism</span>
-        </a>
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-base">record_voice_over</span>
+            <span>WebRTC Audio/Video Calls</span>
+          </div>
+        </div>
+
       </div>
+
+      <!-- Hero Right Column: Natural Borderless Floating 3D Zen Sanctuary Heart -->
+      <div id="hero3dWrapper" class="lg:col-span-5 relative flex flex-col items-center justify-center min-h-[350px] sm:min-h-[420px] md:min-h-[460px] cursor-grab active:cursor-grabbing select-none">
+        
+        <!-- Natural 3D Canvas Viewport (No Box, Transparent) -->
+        <div class="w-full h-[320px] sm:h-[380px] md:h-[430px] relative flex items-center justify-center">
+          <canvas id="hero3dCanvas" class="w-full h-full block"></canvas>
+          
+          <!-- Floating Glass Pill 1: Top Badge -->
+          <div class="absolute top-2 left-2 backdrop-blur-xl bg-white/75 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/80 shadow-lg flex items-center gap-2 animate-float pointer-events-none">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping"></span>
+            <span class="text-[11px] sm:text-xs font-bold text-on-surface">3D Sanctuary Heart</span>
+          </div>
+
+          <!-- Floating Glass Pill 2: Confidentiality Badge -->
+          <div class="absolute bottom-6 right-2 backdrop-blur-xl bg-white/75 px-4.5 py-3 rounded-2xl border border-white/80 shadow-xl flex items-center gap-3 animate-float [animation-delay:2s] pointer-events-none">
+            <div class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold">
+              <span class="material-symbols-outlined text-lg">security</span>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-on-surface">100% Confidential</p>
+              <p class="text-[10px] text-on-surface-variant font-medium">Encrypted Peer Sanctuary</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Stat Cards floating seamlessly -->
+        <div class="grid grid-cols-2 gap-4 w-full mt-1">
+          <div class="backdrop-blur-xl bg-white/60 p-4 rounded-2xl border border-white/80 shadow-sm flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <span class="material-symbols-outlined text-lg">sentiment_satisfied</span>
+            </div>
+            <div>
+              <span class="font-headline font-extrabold text-2xl text-on-surface block leading-tight">99.4%</span>
+              <span class="text-[11px] font-semibold text-on-surface-variant">Positive Feedback</span>
+            </div>
+          </div>
+
+          <div class="backdrop-blur-xl bg-white/60 p-4 rounded-2xl border border-white/80 shadow-sm flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center">
+              <span class="material-symbols-outlined text-lg">groups</span>
+            </div>
+            <div>
+              <span class="font-headline font-extrabold text-2xl text-on-surface block leading-tight">5,000+</span>
+              <span class="text-[11px] font-semibold text-on-surface-variant">Active Sessions</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
     </div>
 
-    <div class="md:col-span-5 relative">
-      <div class="grid grid-cols-2 gap-4">
-        <div class="col-span-2 bg-surface-container-low p-8 rounded-xl space-y-4 transform rotate-1">
-          <div class="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center text-primary">
-            <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">visibility_off</span>
+    <!-- Expanded Hero Bottom Sanctuary Capabilities Strip (Interactive Major Objects) -->
+    <div class="mt-4 pt-3 border-t border-outline-variant/15 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div onclick="openIndexAIMatchModal()" class="cursor-pointer bg-surface-container-lowest/80 backdrop-blur-xl p-5 rounded-2xl border border-outline-variant/15 flex items-center justify-between hover:shadow-xl hover:scale-[1.03] active:scale-95 transition-all group">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-primary-container text-primary flex items-center justify-center flex-shrink-0 font-bold shadow-sm group-hover:scale-110 transition-transform">
+            <span class="material-symbols-outlined text-2xl">neurology</span>
           </div>
-          <h3 class="font-headline text-xl font-bold text-on-surface">No Names. No Pressure.</h3>
-          <p class="text-on-surface-variant text-sm">Your identity is never revealed. Focus entirely on your feelings without the fear of judgment.</p>
-        </div>
-        <div class="bg-secondary-container/30 rounded-xl overflow-hidden aspect-square flex items-center justify-center p-6 -rotate-2">
-          <div class="relative w-full h-full rounded-full bg-white/40 backdrop-blur-sm flex items-center justify-center">
-            <span class="material-symbols-outlined text-primary scale-[2.5]">self_improvement</span>
+          <div>
+            <h4 class="font-headline font-bold text-sm text-on-surface group-hover:text-primary transition-colors">AI Smart Match</h4>
+            <p class="text-xs text-on-surface-variant/80 mt-0.5">Instant mood-based peer pairing</p>
           </div>
         </div>
-        <div class="bg-primary-container/20 p-6 rounded-xl space-y-2 rotate-2 flex flex-col justify-center">
-          <div class="flex -space-x-2">
-            <div class="w-8 h-8 rounded-full bg-slate-300 border-2 border-surface"></div>
-            <div class="w-8 h-8 rounded-full bg-teal-200 border-2 border-surface"></div>
-            <div class="w-8 h-8 rounded-full bg-amber-100 border-2 border-surface"></div>
-          </div>
-          <p class="text-xs font-bold text-primary">People Online</p>
-          <p class="text-[10px] text-on-surface-variant">Ready to listen right now</p>
-        </div>
+        <span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-sm">arrow_forward</span>
       </div>
-    </div>
-  </div>
 
-  <div class="w-screen mt-24 bg-surface-container-low py-16 flex justify-center">
-    <div class="max-w-4xl px-6 text-center space-y-8">
-      <blockquote class="text-2xl md:text-3xl font-headline font-light italic text-on-surface-variant leading-relaxed">
-        "Healing takes time, and asking for help is a courageous step. Here, your voice carries weight, and your silence is respected."
-      </blockquote>
-      <div class="flex items-center justify-center gap-2 text-primary font-semibold">
-        <span class="h-px w-8 bg-primary"></span>
-        <span>A Community of Compassion</span>
-        <span class="h-px w-8 bg-primary"></span>
+      <div onclick="openIndexSecurityModal()" class="cursor-pointer bg-surface-container-lowest/80 backdrop-blur-xl p-5 rounded-2xl border border-outline-variant/15 flex items-center justify-between hover:shadow-xl hover:scale-[1.03] active:scale-95 transition-all group">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-secondary-container text-on-secondary-container flex items-center justify-center flex-shrink-0 font-bold shadow-sm group-hover:scale-110 transition-transform">
+            <span class="material-symbols-outlined text-2xl">shield_lock</span>
+          </div>
+          <div>
+            <h4 class="font-headline font-bold text-sm text-on-surface group-hover:text-primary transition-colors">Web Crypto E2EE</h4>
+            <p class="text-xs text-on-surface-variant/80 mt-0.5">AES-256-GCM message privacy</p>
+          </div>
+        </div>
+        <span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-sm">arrow_forward</span>
+      </div>
+
+      <div onclick="openIndexSoundscapesModal()" class="cursor-pointer bg-surface-container-lowest/80 backdrop-blur-xl p-5 rounded-2xl border border-outline-variant/15 flex items-center justify-between hover:shadow-xl hover:scale-[1.03] active:scale-95 transition-all group">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-600 flex items-center justify-center flex-shrink-0 font-bold shadow-sm group-hover:scale-110 transition-transform">
+            <span class="material-symbols-outlined text-2xl">graphic_eq</span>
+          </div>
+          <div>
+            <h4 class="font-headline font-bold text-sm text-on-surface group-hover:text-teal-600 transition-colors">Zen Soundscapes Music System</h4>
+            <p class="text-xs text-on-surface-variant/80 mt-0.5">Real-time Rain, Waves &amp; 432Hz Alpha Audio</p>
+          </div>
+        </div>
+        <span class="material-symbols-outlined text-outline group-hover:text-teal-600 transition-colors text-sm">arrow_forward</span>
+      </div>
+
+      <div onclick="openIndexReflectModal()" class="cursor-pointer bg-surface-container-lowest/80 backdrop-blur-xl p-5 rounded-2xl border border-outline-variant/15 flex items-center justify-between hover:shadow-xl hover:scale-[1.03] active:scale-95 transition-all group">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center flex-shrink-0 font-bold shadow-sm group-hover:scale-110 transition-transform">
+            <span class="material-symbols-outlined text-2xl">self_improvement</span>
+          </div>
+          <div>
+            <h4 class="font-headline font-bold text-sm text-on-surface group-hover:text-emerald-600 transition-colors">AI Mood Insights</h4>
+            <p class="text-xs text-on-surface-variant/80 mt-0.5">Guided 3D Reflect Studio</p>
+          </div>
+        </div>
+        <span class="material-symbols-outlined text-outline group-hover:text-emerald-600 transition-colors text-sm">arrow_forward</span>
       </div>
     </div>
   </div>
 </main>
 
-<footer class="w-full py-12 px-6 border-t border-outline-variant/10 bg-surface">
-  <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-    <div class="flex items-center gap-2">
-      <span class="material-symbols-outlined text-primary/60">spa</span>
-      <span class="font-headline font-bold text-on-surface/60">Safe Space</span>
+  <!-- Pillars of CareNexus Section -->
+  <section id="features" class="w-full bg-surface-container-low py-20 border-t border-outline-variant/15">
+    <div class="max-w-[1550px] mx-auto px-6 md:px-12">
+      <div class="text-center max-w-2xl mx-auto mb-16 space-y-3">
+        <span class="text-xs font-bold uppercase tracking-widest text-primary">Built for Sanctuary</span>
+        <h2 class="font-headline text-4xl md:text-5xl font-extrabold text-on-surface tracking-tight">Why People Choose CareNexus</h2>
+        <p class="text-on-surface-variant text-base">A thoughtful, privacy-first platform designed to give you peace of mind and genuine human connection.</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+        <!-- Pillar 1 -->
+        <div class="bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/15 hover:shadow-xl transition-all duration-300 space-y-4">
+          <div class="w-14 h-14 rounded-2xl bg-primary-container text-on-primary-container flex items-center justify-center shadow-inner">
+            <span class="material-symbols-outlined text-3xl">visibility_off</span>
+          </div>
+          <h3 class="font-headline text-2xl font-bold text-on-surface">Total Anonymity</h3>
+          <p class="text-on-surface-variant text-sm leading-relaxed">
+            No real names, phone numbers, or personal social profiles required. Express yourself with complete emotional freedom.
+          </p>
+        </div>
+
+        <!-- Pillar 2 -->
+        <div class="bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/15 hover:shadow-xl transition-all duration-300 space-y-4">
+          <div class="w-14 h-14 rounded-2xl bg-secondary-container text-on-secondary-container flex items-center justify-center shadow-inner">
+            <span class="material-symbols-outlined text-3xl">verified_user</span>
+          </div>
+          <h3 class="font-headline text-2xl font-bold text-on-surface">Verified Peer Mentors</h3>
+          <p class="text-on-surface-variant text-sm leading-relaxed">
+            Connect with vetted peer guides who have verified educational backgrounds, crisis training, and certified support achievements.
+          </p>
+        </div>
+
+        <!-- Pillar 3 -->
+        <div class="bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/15 hover:shadow-xl transition-all duration-300 space-y-4">
+          <div class="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-inner">
+            <span class="material-symbols-outlined text-3xl">forum</span>
+          </div>
+          <h3 class="font-headline text-2xl font-bold text-on-surface">Real-Time Chat &amp; Voice</h3>
+          <p class="text-on-surface-variant text-sm leading-relaxed">
+            Instant messaging with Socket.io real-time connection and WebRTC encrypted audio/video calling capabilities when text isn't enough.
+          </p>
+        </div>
+
+        <!-- Pillar 4 -->
+        <div class="bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/15 hover:shadow-xl transition-all duration-300 space-y-4">
+          <div class="w-14 h-14 rounded-2xl bg-teal-500/10 text-teal-600 flex items-center justify-center shadow-inner">
+            <span class="material-symbols-outlined text-3xl">graphic_eq</span>
+          </div>
+          <h3 class="font-headline text-2xl font-bold text-on-surface">Ambient Soundscapes</h3>
+          <p class="text-on-surface-variant text-sm leading-relaxed">
+            Real-time Web Audio synthesis (Calming Rain, Ocean Waves, Zen Forest &amp; 432Hz Alpha Waves) for meditation, focus &amp; breathwork.
+          </p>
+        </div>
+
+      </div>
     </div>
-    <p class="text-xs text-outline italic">You are heard. You are valid.</p>
+  </section>
+
+  <!-- Quote Banner -->
+  <section class="w-full py-20 bg-surface text-center">
+    <div class="max-w-4xl mx-auto px-6 space-y-8">
+      <blockquote class="text-2xl md:text-3xl font-headline font-light italic text-on-surface-variant leading-relaxed">
+        "Healing begins the moment you feel truly heard. CareNexus exists so that no one has to carry their emotional weight alone."
+      </blockquote>
+      <div class="flex items-center justify-center gap-3 text-primary font-bold text-sm tracking-wide uppercase">
+        <span class="h-px w-12 bg-primary"></span>
+        <span>A Sanctuary of Empathy &amp; Respect</span>
+        <span class="h-px w-12 bg-primary"></span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Footer -->
+<footer class="w-full py-12 px-6 md:px-12 border-t border-outline-variant/15 bg-surface-container-low">
+  <div class="max-w-[1550px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+    <div class="flex items-center gap-3">
+      <span class="material-symbols-outlined text-primary text-2xl">spa</span>
+      <span class="font-headline font-bold text-on-surface text-lg">CareNexus</span>
+    </div>
+    <p class="text-xs text-on-surface-variant font-medium">© 2026 CareNexus Safe Space. All rights reserved. Completely Anonymous &amp; Confidential.</p>
+    <div class="flex items-center gap-6 text-xs font-semibold text-on-surface-variant">
+      <a href="login.html" class="hover:text-primary transition-colors">Sign In</a>
+      <a href="register.html" class="hover:text-primary transition-colors">Register</a>
+    </div>
   </div>
 </footer>
+
+<!-- Seamless Borderless 3D Interactive Zen Sanctuary Heart Script -->
+<script>
+(function initNatural3DHeartHero() {
+  const canvas = document.getElementById('hero3dCanvas');
+  const wrapper = document.getElementById('hero3dWrapper');
+  if (!canvas || !wrapper || typeof THREE === 'undefined') return;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, wrapper.clientWidth / 420, 0.1, 1000);
+  camera.position.z = 5.5;
+
+  const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+  renderer.setSize(wrapper.clientWidth, 420);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  // Construct 2D Heart Shape for Extrusion
+  const heartShape = new THREE.Shape();
+  const x = 0, y = 0;
+  heartShape.moveTo(x + 0.25, y + 0.25);
+  heartShape.bezierCurveTo(x + 0.25, y + 0.25, x + 0.20, y, x, y);
+  heartShape.bezierCurveTo(x - 0.30, y, x - 0.30, y + 0.35, x - 0.30, y + 0.35);
+  heartShape.bezierCurveTo(x - 0.30, y + 0.55, x - 0.10, y + 0.77, x + 0.25, y + 0.95);
+  heartShape.bezierCurveTo(x + 0.60, y + 0.77, x + 0.80, y + 0.55, x + 0.80, y + 0.35);
+  heartShape.bezierCurveTo(x + 0.80, y, x + 0.70, y, x + 0.50, y);
+  heartShape.bezierCurveTo(x + 0.35, y, x + 0.25, y + 0.25, x + 0.25, y + 0.25);
+
+  const extrudeSettings = {
+    depth: 0.4,
+    bevelEnabled: true,
+    bevelSegments: 12,
+    steps: 3,
+    bevelSize: 0.2,
+    bevelThickness: 0.2
+  };
+
+  const geometry = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
+  geometry.center();
+  geometry.rotateZ(Math.PI); // Orient heart right-side up
+
+  // Outer Wireframe Glowing 3D Heart Lattice
+  const outerMaterial = new THREE.MeshPhongMaterial({
+    color: 0x3c6d69,
+    emissive: 0x244f4c,
+    specular: 0xb9ece7,
+    shininess: 100,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.9
+  });
+  const heartMesh = new THREE.Mesh(geometry, outerMaterial);
+  heartMesh.scale.set(2.2, 2.2, 2.2);
+  scene.add(heartMesh);
+
+  // Inner Glowing Rich Blood Red Core 3D Heart
+  const innerMaterial = new THREE.MeshStandardMaterial({
+    color: 0x990000,
+    emissive: 0x660000,
+    emissiveIntensity: 0.85,
+    roughness: 0.15,
+    metalness: 0.5,
+    transparent: true,
+    opacity: 0.94
+  });
+  const coreHeartMesh = new THREE.Mesh(geometry, innerMaterial);
+  coreHeartMesh.scale.set(1.7, 1.7, 1.7);
+  scene.add(coreHeartMesh);
+
+  // Central Vibrant Red Point Light
+  const redCoreLight = new THREE.PointLight(0xdd1111, 4.2, 30);
+  redCoreLight.position.set(0, 0, 0);
+  scene.add(redCoreLight);
+
+  // Orbiting Particle Galaxy (220 Floating Particles)
+  const particleCount = 220;
+  const particleGeo = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+  for (let i = 0; i < particleCount * 3; i += 3) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 2.3 + Math.random() * 0.9;
+    positions[i] = Math.cos(angle) * radius;
+    positions[i + 1] = (Math.random() - 0.5) * 1.8;
+    positions[i + 2] = Math.sin(angle) * radius;
+  }
+  particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const particleMat = new THREE.PointsMaterial({ color: 0x376d6d, size: 0.045, transparent: true, opacity: 0.8 });
+  const particleSystem = new THREE.Points(particleGeo, particleMat);
+  scene.add(particleSystem);
+
+  // 3D Mood Galaxy Constellation Orbs
+  const moodOrbs = [];
+  const moodDefs = [
+    { key: 'calm', name: 'Calm 💙', color: 0x0088ff, emissive: 0x0044aa, sound: 'waves', angle: 0, radius: 2.8 },
+    { key: 'anxious', name: 'Anxious 🧡', color: 0xff6600, emissive: 0xaa3300, sound: 'rain', angle: Math.PI * 0.5, radius: 3.0 },
+    { key: 'overwhelmed', name: 'Heavy 💜', color: 0xaa00ff, emissive: 0x5500aa, sound: 'alpha', angle: Math.PI * 1.0, radius: 2.7 },
+    { key: 'hopeful', name: 'Hopeful 💛', color: 0x00cc77, emissive: 0x006633, sound: 'forest', angle: Math.PI * 1.5, radius: 3.1 }
+  ];
+
+  const orbGeometry = new THREE.SphereGeometry(0.24, 32, 32);
+  moodDefs.forEach((def) => {
+    const orbMat = new THREE.MeshStandardMaterial({
+      color: def.color,
+      emissive: def.emissive,
+      emissiveIntensity: 0.85,
+      roughness: 0.2,
+      metalness: 0.6
+    });
+    const orbMesh = new THREE.Mesh(orbGeometry, orbMat);
+    orbMesh.userData = def;
+    scene.add(orbMesh);
+    
+    // Point light inside each orb for glowing space aura
+    const orbLight = new THREE.PointLight(def.color, 1.8, 5);
+    orbMesh.add(orbLight);
+
+    moodOrbs.push({ mesh: orbMesh, def: def });
+  });
+
+  // Lighting
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+  scene.add(ambientLight);
+
+  const pointLight1 = new THREE.PointLight(0xb9ece7, 2.5, 50);
+  pointLight1.position.set(6, 6, 6);
+  scene.add(pointLight1);
+
+  const pointLight2 = new THREE.PointLight(0x376d6d, 2, 50);
+  pointLight2.position.set(-6, -6, 6);
+  scene.add(pointLight2);
+
+  // Mouse & Touch Parallax for Mobile (iPhone, iPad, Android, MacBook & Desktop)
+  let mouseX = 0, mouseY = 0;
+  let targetX = 0, targetY = 0;
+
+  function updatePointerPos(clientX, clientY) {
+    mouseX = (clientX / window.innerWidth) * 2 - 1;
+    mouseY = -(clientY / window.innerHeight) * 2 + 1;
+  }
+
+  window.addEventListener('mousemove', (e) => updatePointerPos(e.clientX, e.clientY));
+  window.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches.length > 0) {
+      updatePointerPos(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: true });
+
+  function handleResize() {
+    if (!wrapper || !renderer || !camera) return;
+    const w = wrapper.clientWidth || window.innerWidth;
+    const isMobile = window.innerWidth < 640;
+    const h = isMobile ? 360 : 500;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  }
+  window.addEventListener('resize', handleResize);
+  handleResize();
+
+  // Smooth Render, Rotation, Rhythmic Heartbeat & Levitation Loop
+  let clock = new THREE.Clock();
+  function animate() {
+    requestAnimationFrame(animate);
+    const elapsedTime = clock.getElapsedTime();
+
+    // 3D Heart Rotation & Gentle Rhythmic Beating Pulse
+    heartMesh.rotation.y = elapsedTime * 0.45;
+    coreHeartMesh.rotation.y = elapsedTime * 0.45;
+
+    particleSystem.rotation.y = elapsedTime * 0.18;
+
+    // Organic Gentle Heartbeat Pulse Effect & Responsive Mobile Scale Adjustment
+    const isMobile = window.innerWidth < 640;
+    const baseScale = isMobile ? 1.7 : 2.4;
+    const coreBaseScale = isMobile ? 1.3 : 1.85;
+
+    const pulse = 1 + Math.sin(elapsedTime * 2.8) * 0.06;
+    heartMesh.scale.set(baseScale * pulse, baseScale * pulse, baseScale * pulse);
+    coreHeartMesh.scale.set(coreBaseScale * pulse, coreBaseScale * pulse, coreBaseScale * pulse);
+    redCoreLight.intensity = 3.5 + Math.sin(elapsedTime * 2.8) * 1.5;
+
+    // Levitation
+    const levitationY = Math.sin(elapsedTime * 1.4) * 0.12;
+    heartMesh.position.y = levitationY;
+    coreHeartMesh.position.y = levitationY;
+
+    // Smooth Parallax Interpolation
+    targetX += (mouseX * 0.9 - targetX) * 0.05;
+    targetY += (mouseY * 0.9 - targetY) * 0.05;
+
+    scene.rotation.y = targetX;
+    scene.rotation.x = -targetY;
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+})();
+</script>
+
+<!-- Interactive Landing Page Modals for Major Objects -->
+
+<!-- 1. AI Smart Match Demo Modal -->
+<div id="indexAIMatchModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto">
+  <div class="bg-surface-container-lowest border border-outline-variant/20 rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <button onclick="closeIndexAIMatchModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-on-surface w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center transition-colors">
+      <span class="material-symbols-outlined text-xl">close</span>
+    </button>
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-12 h-12 rounded-2xl bg-primary-container text-primary flex items-center justify-center font-bold shadow-sm">
+        <span class="material-symbols-outlined text-2xl">neurology</span>
+      </div>
+      <div>
+        <h3 class="font-headline font-extrabold text-xl text-on-surface">AI Peer Matchmaker</h3>
+        <p class="text-xs text-on-surface-variant">Live multi-parameter matching demo</p>
+      </div>
+    </div>
+    <div class="space-y-3 mb-4">
+      <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">Describe how you feel right now:</label>
+      <textarea id="indexMatchNote" placeholder="e.g. Feeling overwhelmed with workload and need an empathetic peer listener..." rows="2" class="w-full bg-surface-container-low border border-outline-variant/20 rounded-2xl p-3 text-xs text-on-surface focus:outline-none focus:border-primary resize-none"></textarea>
+      <button onclick="runIndexMatchDemo()" class="w-full bg-primary text-on-primary font-bold py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95">
+        <span class="material-symbols-outlined text-base">hub</span> Run AI Smart Match Demo
+      </button>
+    </div>
+    <div id="indexMatchResult" class="hidden bg-surface-container-low p-4 rounded-2xl border border-outline-variant/15 text-center space-y-3">
+      <span class="inline-block bg-emerald-500/10 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-500/20">✨ 98% AI Match Found</span>
+      <h4 class="font-headline font-extrabold text-xl text-on-surface">Sarah Peer Guide</h4>
+      <p class="text-xs text-on-surface-variant leading-relaxed">Specialized in Anxiety, Stress Relief &amp; College Workload. Rated 4.9/5.0 by community.</p>
+      <a href="register.html?role=user" class="block w-full bg-primary text-on-primary font-bold py-3 rounded-xl text-xs shadow transition-all active:scale-95 text-center">
+        Get Started &amp; Connect Anonymous Session
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- 2. Web Crypto E2EE Security Modal -->
+<div id="indexSecurityModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto">
+  <div class="bg-surface-container-lowest border border-outline-variant/20 rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <button onclick="closeIndexSecurityModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-on-surface w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center transition-colors">
+      <span class="material-symbols-outlined text-xl">close</span>
+    </button>
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-12 h-12 rounded-2xl bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold shadow-sm">
+        <span class="material-symbols-outlined text-2xl">shield_lock</span>
+      </div>
+      <div>
+        <h3 class="font-headline font-extrabold text-xl text-on-surface">Web Crypto E2EE Privacy</h3>
+        <p class="text-xs text-on-surface-variant">Zero-knowledge AES-256-GCM architecture</p>
+      </div>
+    </div>
+    <div class="space-y-3 text-xs text-on-surface-variant leading-relaxed">
+      <div class="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/15 space-y-2">
+        <div class="flex items-center gap-2 font-bold text-on-surface">
+          <span class="material-symbols-outlined text-primary text-base">key</span> Live Browser Encryption
+        </div>
+        <p>Messages are encrypted directly inside your browser using the native Web Crypto API before reaching network transport.</p>
+      </div>
+      <div class="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/15 space-y-2">
+        <div class="flex items-center gap-2 font-bold text-on-surface">
+          <span class="material-symbols-outlined text-primary text-base">timer</span> 24-Hour Ephemeral Auto-Purge
+        </div>
+        <p>Chat logs automatically dissolve after 24 hours (MongoDB TTL index) or immediately upon session completion.</p>
+      </div>
+      <a href="register.html?role=user" class="block w-full bg-primary text-on-primary font-bold py-3.5 rounded-xl text-xs text-center shadow transition-all active:scale-95">
+        Enter Safe Space Sanctuary
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- 3. AI Mood Insights & Reflect Studio Demo Modal -->
+<div id="indexReflectModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto">
+  <div class="bg-[#fdffda] border border-outline-variant/20 rounded-3xl max-w-xl w-full p-6 md:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <button onclick="closeIndexReflectModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-on-surface w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center transition-colors">
+      <span class="material-symbols-outlined text-xl">close</span>
+    </button>
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold shadow-sm">
+        <span class="material-symbols-outlined text-2xl">self_improvement</span>
+      </div>
+      <div>
+        <h3 class="font-headline font-extrabold text-xl text-on-surface">Guided 3D Reflect Studio</h3>
+        <p class="text-xs text-on-surface-variant">Visual breathwork &amp; ambient audio soundscapes</p>
+      </div>
+    </div>
+    
+    <!-- Breathwork Trainer Demo -->
+    <div class="bg-surface-container-low rounded-2xl p-5 border border-outline-variant/15 text-center mb-4">
+      <span class="text-xs font-bold text-primary uppercase tracking-wider block mb-2">4-7-8 Stress Release Trainer</span>
+      <div class="w-32 h-32 mx-auto my-3 rounded-full bg-gradient-to-br from-primary to-primary-dim text-on-primary flex flex-col items-center justify-center shadow-lg transform transition-all duration-1000" id="indexBreathRing">
+        <span id="indexBreathPhase" class="font-bold text-sm">Inhale</span>
+      </div>
+    </div>
+
+    <!-- Web Audio Soundscapes Demo -->
+    <div class="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/15">
+      <span class="text-xs font-bold text-on-surface block mb-2">Real-Time Web Audio Soundscapes:</span>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="Soundscapes.play('rain')" class="text-xs bg-surface-container-lowest hover:bg-primary/10 text-on-surface px-3 py-1.5 rounded-xl border border-outline-variant/15 flex items-center gap-1 font-semibold">
+          <span>🌧️</span> Rain
+        </button>
+        <button onclick="Soundscapes.play('waves')" class="text-xs bg-surface-container-lowest hover:bg-primary/10 text-on-surface px-3 py-1.5 rounded-xl border border-outline-variant/15 flex items-center gap-1 font-semibold">
+          <span>🌊</span> Waves
+        </button>
+        <button onclick="Soundscapes.play('forest')" class="text-xs bg-surface-container-lowest hover:bg-primary/10 text-on-surface px-3 py-1.5 rounded-xl border border-outline-variant/15 flex items-center gap-1 font-semibold">
+          <span>🌿</span> Forest
+        </button>
+        <button onclick="Soundscapes.play('alpha')" class="text-xs bg-surface-container-lowest hover:bg-primary/10 text-on-surface px-3 py-1.5 rounded-xl border border-outline-variant/15 flex items-center gap-1 font-semibold">
+          <span>🧠</span> Alpha 432Hz
+        </button>
+        <button onclick="Soundscapes.stop()" class="text-xs bg-error/10 text-error font-bold px-3 py-1.5 rounded-xl border border-error/20">
+          Stop
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 4. Zen Soundscapes Music System Modal -->
+<div id="indexSoundscapesModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto">
+  <div class="bg-surface-container-lowest border border-outline-variant/20 rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <button onclick="closeIndexSoundscapesModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-on-surface w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center transition-colors">
+      <span class="material-symbols-outlined text-xl">close</span>
+    </button>
+
+    <div class="flex items-center gap-3 mb-5">
+      <div class="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-600 flex items-center justify-center font-bold shadow-sm">
+        <span class="material-symbols-outlined text-2xl">graphic_eq</span>
+      </div>
+      <div>
+        <h3 class="font-headline font-extrabold text-xl text-on-surface">Zen Soundscapes Music System</h3>
+        <p class="text-xs text-on-surface-variant">Procedural Web Audio API sound synthesis</p>
+      </div>
+    </div>
+
+    <p class="text-xs text-on-surface-variant leading-relaxed mb-4">
+      Experience soothing ambient audio synthesized live in your browser using pure Web Audio API oscillators and pink-noise nodes. Perfect for mindfulness, meditation, and focused journaling.
+    </p>
+
+    <!-- Soundscape Selector Cards -->
+    <div class="grid grid-cols-2 gap-3 mb-5">
+      <button onclick="playIndexSoundscape('rain')" class="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/15 hover:border-teal-500/50 hover:bg-teal-500/5 transition-all text-left group">
+        <div class="text-2xl mb-1">🌧️</div>
+        <div class="font-bold text-xs text-on-surface group-hover:text-teal-600">Calming Rain</div>
+        <div class="text-[10px] text-on-surface-variant">Soft precipitation</div>
+      </button>
+
+      <button onclick="playIndexSoundscape('waves')" class="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/15 hover:border-teal-500/50 hover:bg-teal-500/5 transition-all text-left group">
+        <div class="text-2xl mb-1">🌊</div>
+        <div class="font-bold text-xs text-on-surface group-hover:text-teal-600">Ocean Waves</div>
+        <div class="text-[10px] text-on-surface-variant">Rhythmic tidal swell</div>
+      </button>
+
+      <button onclick="playIndexSoundscape('forest')" class="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/15 hover:border-teal-500/50 hover:bg-teal-500/5 transition-all text-left group">
+        <div class="text-2xl mb-1">🌿</div>
+        <div class="font-bold text-xs text-on-surface group-hover:text-teal-600">Zen Forest</div>
+        <div class="text-[10px] text-on-surface-variant">Gentle breeze &amp; leaves</div>
+      </button>
+
+      <button onclick="playIndexSoundscape('alpha')" class="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/15 hover:border-teal-500/50 hover:bg-teal-500/5 transition-all text-left group">
+        <div class="text-2xl mb-1">🧠</div>
+        <div class="font-bold text-xs text-on-surface group-hover:text-teal-600">Soft Alpha 432Hz</div>
+        <div class="text-[10px] text-on-surface-variant">Harmonic binaural pulse</div>
+      </button>
+    </div>
+
+    <!-- Live Status & Controls -->
+    <div class="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/15 space-y-3">
+      <div class="flex items-center justify-between">
+        <span id="soundscapeCurrentPlaying" class="text-xs font-bold text-teal-600">Select a soundscape to play</span>
+        <button onclick="stopIndexSoundscape()" class="text-xs bg-error/10 text-error hover:bg-error/20 font-bold px-3 py-1 rounded-xl border border-error/20 transition-colors">
+          Stop Audio
+        </button>
+      </div>
+
+      <div class="space-y-1">
+        <div class="flex items-center justify-between text-[11px] font-bold text-on-surface-variant">
+          <span>Master Volume</span>
+          <span id="soundscapeVolVal">50%</span>
+        </div>
+        <input type="range" min="0" max="1" step="0.05" value="0.5" oninput="setIndexSoundscapeVolume(this.value); document.getElementById('soundscapeVolVal').textContent = Math.round(this.value * 100) + '%';" class="w-full accent-teal-600 cursor-pointer">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Peer Mentors Directory Modal -->
+<div id="indexMentorsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto">
+  <div class="bg-surface-container-lowest border border-outline-variant/20 rounded-3xl p-6 md:p-8 max-w-3xl w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <button onclick="closeIndexMentorsModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-on-surface w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center transition-colors">
+      <span class="material-symbols-outlined text-xl">close</span>
+    </button>
+
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-12 h-12 rounded-2xl bg-primary-container text-primary flex items-center justify-center font-bold shadow-sm">
+        <span class="material-symbols-outlined text-2xl">badge</span>
+      </div>
+      <div>
+        <h3 class="font-headline font-extrabold text-2xl text-on-surface">Peer Mentors Directory</h3>
+        <p class="text-xs text-on-surface-variant">Vetted, background-checked &amp; crisis-trained listeners</p>
+      </div>
+    </div>
+
+    <!-- Specialty Quick Filter Pills -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-3 mb-5 scrollbar-none text-xs font-bold">
+      <span class="bg-primary text-on-primary px-3.5 py-1.5 rounded-full cursor-pointer shadow-sm">All Mentors</span>
+      <span class="bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant px-3.5 py-1.5 rounded-full border border-outline-variant/15 cursor-pointer">Anxiety &amp; Stress</span>
+      <span class="bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant px-3.5 py-1.5 rounded-full border border-outline-variant/15 cursor-pointer">College &amp; Workload</span>
+      <span class="bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant px-3.5 py-1.5 rounded-full border border-outline-variant/15 cursor-pointer">Mindfulness</span>
+    </div>
+
+    <!-- Mentors Cards Grid -->
+    <div id="indexMentorsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      
+      <!-- Mentor 1 -->
+      <div class="bg-surface-container-low p-5 rounded-2xl border border-outline-variant/15 flex flex-col justify-between hover:shadow-md transition-all">
+        <div>
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full bg-primary/20 text-primary font-headline font-extrabold flex items-center justify-center text-lg border border-primary/30">
+                SJ
+              </div>
+              <div>
+                <h4 class="font-headline font-bold text-base text-on-surface flex items-center gap-1.5">
+                  Sarah Jenkins
+                  <span class="material-symbols-outlined text-primary text-base" title="Verified Peer Guide">verified</span>
+                </h4>
+                <span class="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Online Now • Crisis Trained
+                </span>
+              </div>
+            </div>
+            <span class="bg-amber-500/10 text-amber-700 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+              ⭐ 4.9 <span class="text-[10px] text-amber-700/80">(142)</span>
+            </span>
+          </div>
+
+          <p class="text-xs text-on-surface-variant leading-relaxed mb-3">
+            Specializes in college workload stress, panic attacks, and daily anxiety management. Certified in Active Empathic Listening.
+          </p>
+
+          <div class="flex flex-wrap gap-1.5 mb-4">
+            <span class="bg-surface-container-lowest text-[10px] font-semibold text-on-surface-variant px-2.5 py-1 rounded-md border border-outline-variant/15">M.S. Psychology</span>
+            <span class="bg-surface-container-lowest text-[10px] font-semibold text-on-surface-variant px-2.5 py-1 rounded-md border border-outline-variant/15">Anxiety Care</span>
+            <span class="bg-surface-container-lowest text-[10px] font-semibold text-on-surface-variant px-2.5 py-1 rounded-md border border-outline-variant/15">Exam Stress</span>
+          </div>
+        </div>
+
+        <a href="register.html?role=user" class="w-full bg-primary text-on-primary font-bold py-2.5 rounded-xl text-xs text-center shadow transition-all active:scale-95 block">
+          Connect Anonymous Session
+        </a>
+      </div>
+
+      <!-- Mentor 2 -->
+      <div class="bg-surface-container-low p-5 rounded-2xl border border-outline-variant/15 flex flex-col justify-between hover:shadow-md transition-all">
+        <div>
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container font-headline font-extrabold flex items-center justify-center text-lg border border-secondary/30">
+                AR
+              </div>
+              <div>
+                <h4 class="font-headline font-bold text-base text-on-surface flex items-center gap-1.5">
+                  Alex Rivera
+                  <span class="material-symbols-outlined text-primary text-base" title="Verified Peer Guide">verified</span>
+                </h4>
+                <span class="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Online Now • LGBTQ+ Safe
+                </span>
+              </div>
+            </div>
+            <span class="bg-amber-500/10 text-amber-700 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+              ⭐ 4.95 <span class="text-[10px] text-amber-700/80">(98)</span>
+            </span>
+          </div>
+
+          <p class="text-xs text-on-surface-variant leading-relaxed mb-3">
+            Focuses on identity exploration, LGBTQ+ inclusivity, and emotional resilience building during career transitions.
+          </p>
+
+          <div class="flex flex-wrap gap-1.5 mb-4">
+            <span class="bg-surface-container-lowest text-[10px] font-semibold text-on-surface-variant px-2.5 py-1 rounded-md border border-outline-variant/15">B.A. Social Work</span>
+            <span class="bg-surface-container-lowest text-[10px] font-semibold text-on-surface-variant px-2.5 py-1 rounded-md border border-outline-variant/15">Identity &amp; Growth</span>
+          </div>
+        </div>
+
+        <a href="register.html?role=user" class="w-full bg-primary text-on-primary font-bold py-2.5 rounded-xl text-xs text-center shadow transition-all active:scale-95 block">
+          Connect Anonymous Session
+        </a>
+      </div>
+
+    </div>
+
+    <!-- Footer Banner -->
+    <div class="bg-primary/5 border border-primary/15 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+      <div>
+        <h5 class="font-headline font-bold text-sm text-on-surface">Want to become a Verified Peer Guide?</h5>
+        <p class="text-xs text-on-surface-variant">Share your empathy, undergo background verification, and support peers in need.</p>
+      </div>
+      <a href="register.html?role=mentor" class="bg-primary text-on-primary font-bold px-5 py-2.5 rounded-xl text-xs whitespace-nowrap shadow hover:opacity-90 transition-all active:scale-95">
+        Apply as Mentor
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function openIndexMentorsModal() {
+  document.getElementById('indexMentorsModal').classList.remove('hidden');
+  fetchIndexMentorsList();
+}
+function closeIndexMentorsModal() {
+  document.getElementById('indexMentorsModal').classList.add('hidden');
+}
+
+async function fetchIndexMentorsList() {
+  try {
+    const res = await fetch('/api/auth/mentors');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.mentors && data.mentors.length > 0) {
+        const grid = document.getElementById('indexMentorsGrid');
+        const liveCardsHTML = data.mentors.map(m => `
+          <div class="bg-surface-container-low p-5 rounded-2xl border border-outline-variant/15 flex flex-col justify-between hover:shadow-md transition-all">
+            <div>
+              <div class="flex items-start justify-between gap-3 mb-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-full bg-primary-container text-primary font-headline font-extrabold flex items-center justify-center text-lg border border-primary/30">
+                    ${(m.username || 'Peer').slice(0,2).toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 class="font-headline font-bold text-base text-on-surface flex items-center gap-1.5">
+                      ${m.username || 'Peer Guide'}
+                      <span class="material-symbols-outlined text-primary text-base" title="Verified Peer Guide">verified</span>
+                    </h4>
+                    <span class="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Active Listener
+                    </span>
+                  </div>
+                </div>
+                <span class="bg-amber-500/10 text-amber-700 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+                  ⭐ ${m.ratings && m.ratings.average ? m.ratings.average.toFixed(1) : '5.0'}
+                </span>
+              </div>
+              <p class="text-xs text-on-surface-variant leading-relaxed mb-3">
+                ${m.bio || 'Compassionate verified peer mentor ready to listen and support anonymously.'}
+              </p>
+            </div>
+            <a href="register.html?role=user" class="w-full bg-primary text-on-primary font-bold py-2.5 rounded-xl text-xs text-center shadow transition-all active:scale-95 block">
+              Connect Anonymous Session
+            </a>
+          </div>
+        `).join('');
+        grid.innerHTML = liveCardsHTML;
+      }
+    }
+  } catch(e) {
+    console.log('Mentors fetch note:', e);
+  }
+}
+
+function openIndexAIMatchModal() { document.getElementById('indexAIMatchModal').classList.remove('hidden'); }
+function closeIndexAIMatchModal() { document.getElementById('indexAIMatchModal').classList.add('hidden'); }
+
+function runIndexMatchDemo() {
+  document.getElementById('indexMatchResult').classList.remove('hidden');
+}
+
+function openIndexSecurityModal() { document.getElementById('indexSecurityModal').classList.remove('hidden'); }
+function closeIndexSecurityModal() { document.getElementById('indexSecurityModal').classList.add('hidden'); }
+
+function openIndexReflectModal() { document.getElementById('indexReflectModal').classList.remove('hidden'); }
+function closeIndexReflectModal() {
+  if (typeof Soundscapes !== 'undefined') Soundscapes.stop();
+  document.getElementById('indexReflectModal').classList.add('hidden');
+}
+
+function openIndexSoundscapesModal() { document.getElementById('indexSoundscapesModal').classList.remove('hidden'); }
+function closeIndexSoundscapesModal() {
+  if (typeof Soundscapes !== 'undefined') Soundscapes.stop();
+  document.getElementById('indexSoundscapesModal').classList.add('hidden');
+}
+
+function playIndexSoundscape(type) {
+  if (typeof Soundscapes !== 'undefined') {
+    Soundscapes.play(type);
+    document.getElementById('soundscapeCurrentPlaying').textContent = '🔊 Playing: ' + type.charAt(0).toUpperCase() + type.slice(1);
+  }
+}
+
+function stopIndexSoundscape() {
+  if (typeof Soundscapes !== 'undefined') {
+    Soundscapes.stop();
+    document.getElementById('soundscapeCurrentPlaying').textContent = '⏹️ Audio Stopped';
+  }
+}
+
+function setIndexSoundscapeVolume(val) {
+  if (typeof Soundscapes !== 'undefined') {
+    Soundscapes.setVolume(parseFloat(val));
+  }
+}
+
+document.addEventListener('DOMContentLoaded', fetchIndexMentorsList);
+</script>
+
 </body>
 </html>

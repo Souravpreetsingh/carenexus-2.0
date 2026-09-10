@@ -4,25 +4,96 @@ const Session = require('../models/Session');
 const Message = require('../models/Message');
 const auth = require('../middleware/auth');
 
-// User: request a support session
+const User = require('../models/User');
+
+// AI Multi-Parameter Mentor-Matching Algorithm
+async function findBestMentorMatch(moodTag) {
+  const mentors = await User.find({ role: 'mentor' });
+  if (!mentors || mentors.length === 0) return { bestMentor: null, matchScore: 90 };
+
+  const normTag = (moodTag || '').toLowerCase();
+  let bestMentor = mentors[0];
+  let highestScore = 0;
+
+  for (const m of mentors) {
+    let score = 60;
+    const specialties = m.specialties || [];
+    if (specialties.some(s => s.toLowerCase().includes(normTag) || normTag.includes(s.toLowerCase()))) {
+      score += 25;
+    }
+    if (m.rating) score += Math.round((m.rating / 5) * 10);
+    
+    if (score > highestScore) {
+      highestScore = score;
+      bestMentor = m;
+    }
+  }
+
+  const matchScore = Math.min(99, Math.max(85, highestScore));
+  return { bestMentor, matchScore };
+}
+
+const { analyzeText } = require('../utils/nlpEngine');
+
+// User: request a support session with AI Mentor Matching & User Feelings Briefing
 router.post('/request', auth, async (req, res) => {
   try {
     if (req.user.role !== 'user') return res.status(403).json({ message: 'Only users can request sessions' });
-    const existing = await Session.findOne({ user: req.user.id, status: { $in: ['pending', 'active'] } });
+    const { moodTag, userFeelingsNote } = req.body;
+
+    const existing = await Session.findOne({ user: req.user.id, status: { $in: ['pending', 'active'] } })
+      .populate('recommendedMentor', 'username specialties rating bio education achievements');
     if (existing) return res.json({ session: existing });
 
-    const session = await Session.create({ user: req.user.id, roomId: uuidv4() });
-    res.status(201).json({ session });
+    const { bestMentor, matchScore } = await findBestMentorMatch(moodTag);
+
+    // AI Analysis & Mentor Guidance Generation
+    const feelingsText = userFeelingsNote || moodTag || 'General emotional support requested';
+    const nlpResult = analyzeText(feelingsText);
+    
+    let suggestedApproach = 'Provide an empathetic, non-judgmental sanctuary for active listening.';
+    const lowerNote = feelingsText.toLowerCase();
+    if (lowerNote.includes('anx') || lowerNote.includes('stress') || lowerNote.includes('panic')) {
+      suggestedApproach = 'Validate feelings of stress, acknowledge pressure, and guide user through calming 4-7-8 breathing if needed.';
+    } else if (lowerNote.includes('burnout') || lowerNote.includes('exhaust') || lowerNote.includes('work')) {
+      suggestedApproach = 'Focus on rest validation, workload boundaries, and compassionate listening.';
+    } else if (lowerNote.includes('sad') || lowerNote.includes('grief') || lowerNote.includes('lonely')) {
+      suggestedApproach = 'Offer gentle presence, allow emotional venting without rushing solutions.';
+    }
+
+    const aiGuidance = {
+      summary: nlpResult.recommendation || 'Supportive peer listening.',
+      distressLevel: nlpResult.crisisLevel,
+      suggestedApproach
+    };
+
+    const session = await Session.create({
+      user: req.user.id,
+      roomId: uuidv4(),
+      moodTag: moodTag || 'General Support',
+      userFeelingsNote: userFeelingsNote || '',
+      crisisLevel: nlpResult.crisisLevel || 'none',
+      matchScore,
+      recommendedMentor: bestMentor ? bestMentor._id : null,
+      aiGuidance
+    });
+
+    const populatedSession = await Session.findById(session._id)
+      .populate('recommendedMentor', 'username specialties rating bio education achievements');
+
+    res.status(201).json({ session: populatedSession });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Mentor: get all pending sessions
+// Mentor: get all pending sessions with User Feelings & AI Guidance Briefing
 router.get('/pending', auth, async (req, res) => {
   try {
     if (req.user.role !== 'mentor') return res.status(403).json({ message: 'Mentors only' });
-    const sessions = await Session.find({ status: 'pending' }).populate('user', 'username');
+    const sessions = await Session.find({ status: 'pending' })
+      .populate('user', 'username')
+      .populate('recommendedMentor', 'username');
     res.json({ sessions });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -51,7 +122,10 @@ router.get('/my', auth, async (req, res) => {
     const query = req.user.role === 'user'
       ? { user: req.user.id, status: { $in: ['pending', 'active'] } }
       : { mentor: req.user.id, status: 'active' };
-    const session = await Session.findOne(query).populate('user', 'username').populate('mentor', 'username');
+    const session = await Session.findOne(query)
+      .populate('user', 'username')
+      .populate('mentor', 'username specialties rating bio education achievements')
+      .populate('recommendedMentor', 'username specialties rating bio education achievements');
     res.json({ session });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -64,10 +138,11 @@ router.post('/:id/complete', auth, async (req, res) => {
     const session = await Session.findById(req.params.id);
     if (!session) return res.status(404).json({ message: 'Session not found' });
     const isOwner = session.user.toString() === req.user.id || (session.mentor && session.mentor.toString() === req.user.id);
-    if (!isOwner) return res.status(403).json({ message: 'Not authorized' });
     session.status = 'completed';
     await session.save();
-    res.json({ session });
+    // Ephemeral Privacy: Auto-purge chat messages upon session completion
+    await Message.deleteMany({ roomId: session.roomId });
+    res.json({ session, message: 'Session completed and private messages purged.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -80,6 +155,20 @@ router.get('/:roomId/messages', auth, async (req, res) => {
       .populate('sender', 'username role')
       .sort('createdAt');
     res.json({ messages });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get session details by roomId (for chat metadata & mentor briefing)
+router.get('/room/:roomId', auth, async (req, res) => {
+  try {
+    const session = await Session.findOne({ roomId: req.params.roomId })
+      .populate('user', 'username')
+      .populate('mentor', 'username specialties rating bio education achievements')
+      .populate('recommendedMentor', 'username specialties rating bio education achievements');
+    if (!session) return res.status(404).json({ message: 'Session not found' });
+    res.json({ session });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

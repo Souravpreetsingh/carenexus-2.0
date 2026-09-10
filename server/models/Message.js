@@ -5,7 +5,7 @@ const messageSchema = new mongoose.Schema({
   sender:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   senderRole: { type: String, enum: ['user', 'mentor'] },
   text:      { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now, expires: 86400 } // Auto-destruct 24h post-creation
 });
 
 module.exports = mongoose.model('Message', messageSchema);

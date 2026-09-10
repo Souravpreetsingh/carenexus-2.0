@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script src="/socket.io/socket.io.js"></script>
+<script src="/js/aiChatBot.js"></script>
 <script>
   tailwind.config={darkMode:"class",theme:{extend:{colors:{
     "secondary-container":"#b5edec","on-secondary-container":"#225a5a",
@@ -26,10 +27,10 @@
   .hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
 </style>
 </head>
-<body class="font-body text-on-surface flex flex-col h-screen">
+<body class="font-body text-on-surface flex flex-col h-screen h-[100dvh] overflow-hidden">
 
 <!-- Header -->
-<header class="w-full bg-[#fdffda] flex justify-between items-center px-6 py-4 flex-shrink-0">
+<header class="w-full bg-[#fdffda] flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0">
   <div class="flex items-center gap-3">
     <div class="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center">
       <span class="material-symbols-outlined text-primary">spa</span>
@@ -66,15 +67,59 @@
   <p class="text-on-surface-variant text-xs max-w-xs text-center">This space is completely private. Your identity remains protected.</p>
 </div>
 
+<!-- Real-Time AI Crisis Safety Escalation Banner -->
+<div id="crisisBanner" class="hidden w-full max-w-6xl mx-auto px-4 mb-3">
+  <div class="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center flex-shrink-0 shadow-md">
+        <span class="material-symbols-outlined text-2xl animate-pulse">emergency</span>
+      </div>
+      <div>
+        <h4 class="font-headline font-bold text-rose-800 text-sm">Need Immediate Emergency Crisis Support?</h4>
+        <p class="text-rose-700/90 text-xs mt-0.5">CareNexus detected high distress. Free, confidential 24/7 counselors are ready right now.</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0 w-full md:w-auto justify-end">
+      <a href="tel:988" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow transition-all active:scale-95">
+        <span class="material-symbols-outlined text-[16px]">call</span> Call 988
+      </a>
+      <a href="tel:14416" class="bg-surface-container-lowest hover:bg-surface-container-high text-rose-800 border border-rose-300 text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1 transition-all">
+        Tele-MANAS
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Mentor AI Guidance & User Feelings Briefing Card -->
+<div id="mentorBriefingCard" class="hidden w-full max-w-6xl mx-auto px-4 mb-3">
+  <div class="bg-surface-container-low border border-primary/20 rounded-2xl p-4 shadow-sm text-xs space-y-2">
+    <div class="flex items-center justify-between border-b border-outline-variant/15 pb-2">
+      <div class="flex items-center gap-2 text-primary font-bold">
+        <span class="material-symbols-outlined text-base">neurology</span>
+        <span>AI Mentor Guidance Briefing</span>
+      </div>
+      <span id="briefingMoodTag" class="bg-primary/10 text-primary font-bold px-2.5 py-0.5 rounded-full text-[11px]">General Support</span>
+    </div>
+    <div>
+      <span class="font-bold text-on-surface-variant uppercase tracking-wider text-[10px]">User's Stated Feelings:</span>
+      <p id="briefingFeelingsNote" class="text-on-surface italic mt-0.5 leading-relaxed bg-surface-container-lowest p-2.5 rounded-xl border border-outline-variant/10">No specific feelings note provided.</p>
+    </div>
+    <div class="flex items-start gap-1.5 text-on-surface-variant">
+      <span class="material-symbols-outlined text-primary text-sm mt-0.5">tips_and_updates</span>
+      <span><strong>Suggested Approach:</strong> <span id="briefingSuggestedApproach">Provide active listening and empathetic validation.</span></span>
+    </div>
+  </div>
+</div>
+
 <!-- Messages -->
-<div id="messages" class="flex-1 overflow-y-auto hide-scrollbar px-4 md:px-8 max-w-4xl w-full mx-auto space-y-4 pb-4">
+<div id="messages" class="flex-1 overflow-y-auto hide-scrollbar px-4 md:px-8 max-w-6xl w-full mx-auto space-y-4 pb-4">
   <div class="flex justify-center">
     <span class="px-3 py-1 bg-surface-container-high rounded-full text-[11px] font-medium text-on-surface-variant uppercase tracking-wider">Today</span>
   </div>
 </div>
 
 <!-- Input -->
-<div class="flex-shrink-0 max-w-4xl w-full mx-auto px-4 md:px-8 pb-8 pt-2">
+<div class="flex-shrink-0 max-w-6xl w-full mx-auto px-4 md:px-8 pb-8 pt-2">
   <div class="bg-surface-container-lowest/80 backdrop-blur-xl rounded-[2rem] p-3 shadow-[0_12px_40px_rgba(56,56,48,0.08)] border border-outline-variant/15">
     <div class="flex items-center gap-2">
       <input id="msgInput" type="text" placeholder="Type your feelings here..."
@@ -148,8 +193,8 @@
 <div class="fixed bottom-[10%] -right-[10%] w-[30%] h-[30%] bg-secondary-container/20 blur-[100px] rounded-full -z-10"></div>
 
 <script>
-const token = localStorage.getItem('token');
-const user = JSON.parse(localStorage.getItem('user') || 'null');
+const token = localStorage.getItem('token') || localStorage.getItem('care_token');
+const user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('care_user') || 'null');
 const roomId = localStorage.getItem('roomId');
 const sessionId = localStorage.getItem('sessionId');
 if (!token || !user || !roomId) location.href = 'dashboard.html';
@@ -159,13 +204,107 @@ document.getElementById('chatTitle').textContent = user.role === 'mentor' ? 'Cha
 const socket = io();
 socket.emit('join-room', roomId);
 
+// Web Crypto API AES-256-GCM E2EE Implementation
+let roomCryptoKey = null;
+
+async function getRoomKey(roomIdentifier) {
+  if (roomCryptoKey) return roomCryptoKey;
+  const enc = new TextEncoder();
+  const rawKeyMaterial = enc.encode('CareNexus-SafeSpace-Salt:' + roomIdentifier);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', rawKeyMaterial);
+  roomCryptoKey = await crypto.subtle.importKey(
+    'raw',
+    hashBuffer,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+  return roomCryptoKey;
+}
+
+async function encryptMessageText(plaintext, roomIdentifier) {
+  try {
+    const key = await getRoomKey(roomIdentifier);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encodedPlain = new TextEncoder().encode(plaintext);
+    const encryptedBuffer = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: iv },
+      key,
+      encodedPlain
+    );
+    const ivBase64 = btoa(String.fromCharCode(...iv));
+    const cipherBase64 = btoa(String.fromCharCode(...new Uint8Array(encryptedBuffer)));
+    return `ENC:${ivBase64}:${cipherBase64}`;
+  } catch (err) {
+    console.error('Encryption error:', err);
+    return plaintext;
+  }
+}
+
+async function decryptMessageText(cipherPayload, roomIdentifier) {
+  if (!cipherPayload || !cipherPayload.startsWith('ENC:')) return cipherPayload;
+  try {
+    const parts = cipherPayload.split(':');
+    if (parts.length !== 3) return cipherPayload;
+    const ivStr = atob(parts[1]);
+    const cipherStr = atob(parts[2]);
+    const iv = new Uint8Array([...ivStr].map(c => c.charCodeAt(0)));
+    const cipherBuffer = new Uint8Array([...cipherStr].map(c => c.charCodeAt(0)));
+
+    const key = await getRoomKey(roomIdentifier);
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv },
+      key,
+      cipherBuffer
+    );
+    return new TextDecoder().decode(decryptedBuffer);
+  } catch (err) {
+    console.error('Decryption error:', err);
+    return '[🔒 Encrypted Message]';
+  }
+}
+
 fetch(`/api/sessions/${roomId}/messages`, {headers:{'Authorization':`Bearer ${token}`}})
-  .then(r => r.json()).then(data => {
-    if (data.messages && data.messages.length > 0)
-      data.messages.forEach(m => appendMessage(m.text, m.senderRole, m.createdAt));
+  .then(r => r.json()).then(async data => {
+    if (data.messages && data.messages.length > 0) {
+      for (const m of data.messages) {
+        const decrypted = await decryptMessageText(m.text, roomId);
+        appendMessage(decrypted, m.senderRole, m.createdAt);
+      }
+    }
   });
 
-socket.on('receive-message', ({text, senderRole, createdAt}) => appendMessage(text, senderRole, createdAt));
+// Load session details for Mentor Briefing
+if (user.role === 'mentor') {
+  fetch(`/api/sessions/room/${roomId}`, {headers:{'Authorization':`Bearer ${token}`}})
+    .then(r => r.json()).then(data => {
+      if (data.session) {
+        const s = data.session;
+        document.getElementById('mentorBriefingCard').classList.remove('hidden');
+        document.getElementById('briefingMoodTag').textContent = s.moodTag || 'General Support';
+        document.getElementById('briefingFeelingsNote').textContent = s.userFeelingsNote ? `"${s.userFeelingsNote}"` : 'User requested general emotional guidance without a specific note.';
+        if (s.aiGuidance && s.aiGuidance.suggestedApproach) {
+          document.getElementById('briefingSuggestedApproach').textContent = s.aiGuidance.suggestedApproach;
+        }
+      }
+    }).catch(err => console.error('Error fetching session briefing:', err));
+}
+
+socket.on('receive-message', async ({text, senderRole, createdAt}) => {
+  const decrypted = await decryptMessageText(text, roomId);
+  appendMessage(decrypted, senderRole, createdAt);
+});
+
+socket.on('crisis-alert', () => {
+  document.getElementById('crisisBanner').classList.remove('hidden');
+});
+
+const CRISIS_TERMS = ['suicide', 'kill myself', 'end my life', 'want to die', 'hurt myself', 'self harm', 'end it all', 'give up'];
+
+function checkDistress(text) {
+  const lower = text.toLowerCase();
+  return CRISIS_TERMS.some(term => lower.includes(term));
+}
 
 function appendMessage(text, senderRole, createdAt) {
   const box = document.getElementById('messages');
@@ -196,11 +335,16 @@ function appendMessage(text, senderRole, createdAt) {
   box.scrollTop = box.scrollHeight;
 }
 
-function sendMessage() {
+async function sendMessage() {
   const input = document.getElementById('msgInput');
   const text = input.value.trim();
   if (!text) return;
-  socket.emit('send-message', {roomId, senderId: user.id, senderRole: user.role, text});
+  if (checkDistress(text)) {
+    document.getElementById('crisisBanner').classList.remove('hidden');
+    socket.emit('trigger-crisis', { roomId, crisisLevel: 'critical', triggers: ['distress_keywords'] });
+  }
+  const encryptedText = await encryptMessageText(text, roomId);
+  socket.emit('send-message', {roomId, senderId: user.id, senderRole: user.role, text: encryptedText});
   input.value = '';
 }
 

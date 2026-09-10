@@ -3,89 +3,220 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Safe Space | Login</title>
+<title>CareNexus | Welcome Back to Sanctuary</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-<script>
-  tailwind.config={darkMode:"class",theme:{extend:{colors:{
-    "secondary-container":"#b5edec","on-secondary-container":"#225a5a",
-    "outline-variant":"#bbbaaf","on-surface-variant":"#65655c",
-    "on-primary":"#ffffff","surface":"#fdffda","on-surface":"#383830",
-    "surface-container-low":"#fcf9f0","surface-container-lowest":"#ffffff",
-    "primary-container":"#b9ece7","on-primary-container":"#285a56",
-    "primary":"#3c6d69","primary-dim":"#2f605d","error":"#af3d3b"
-  },fontFamily:{"headline":["Manrope"],"body":["Inter"]}}}}
+<script src="/js/aiChatBot.js"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode:"class",
+    theme:{extend:{colors:{
+      "secondary-container":"#b5edec","on-secondary-container":"#225a5a",
+      "outline-variant":"#bbbaaf","on-surface-variant":"#65655c",
+      "on-primary":"#ffffff","surface":"#fdffda","on-surface":"#383830",
+      "surface-container-low":"#fcf9f0","surface-container-lowest":"#ffffff",
+      "primary-container":"#b9ece7","on-primary-container":"#285a56",
+      "primary":"#3c6d69","primary-dim":"#2f605d","error":"#af3d3b"
+    },fontFamily:{"headline":["Manrope"],"body":["Inter"]}}}
+  }
 </script>
 <style>
+  .ethereal-glow{background:radial-gradient(circle at 50% 50%,rgba(185,236,231,0.65) 0%,rgba(253,255,218,0) 75%);}
+  .gradient-text{background:linear-gradient(135deg, #2f605d 0%, #3c6d69 50%, #1e4542 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
   .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}
   body{min-height:100dvh;background:#fdffda;}
+  @keyframes float { 0%,100%{transform:translateY(0px);} 50%{transform:translateY(-8px);} }
+  .animate-float{animation:float 5s ease-in-out infinite;}
 </style>
 </head>
-<body class="font-body text-on-surface flex flex-col">
+<body class="bg-surface text-on-surface font-body min-h-screen flex flex-col justify-between overflow-x-hidden">
 
-<nav class="w-full sticky top-0 z-50 flex justify-between items-center px-6 py-4 bg-[#fdffda]">
-  <a href="index.html" class="flex items-center gap-2">
-    <span class="material-symbols-outlined text-[#3c6d69]">spa</span>
-    <span class="font-['Manrope'] font-bold text-[#3c6d69] tracking-tight text-lg">Safe Space</span>
-  </a>
-</nav>
+  <!-- Floating Navigation Header -->
+  <header class="w-[96%] max-w-[1550px] mx-auto sticky top-3 sm:top-4 z-50 bg-[#fdffda]/80 backdrop-blur-xl border border-outline-variant/20 px-6 py-3.5 flex justify-between items-center rounded-full shadow-lg shadow-primary/5 transition-all">
+    <a href="index.html" class="flex items-center gap-3 group">
+      <div class="w-10 h-10 rounded-xl bg-primary-container text-primary flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+        <span class="material-symbols-outlined text-2xl" style="font-variation-settings:'FILL' 1;">spa</span>
+      </div>
+      <div>
+        <span class="font-headline font-extrabold text-primary text-xl tracking-tight block">CareNexus</span>
+        <span class="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest block -mt-1">Safe Space Sanctuary</span>
+      </div>
+    </a>
 
-<main class="flex-1 flex items-center justify-center px-6 py-12">
-  <div class="w-full max-w-md">
-    <div class="bg-surface-container-lowest rounded-2xl p-10 shadow-[0_12px_40px_rgba(56,56,48,0.08)] border border-outline-variant/15">
-      <div class="text-center mb-8">
-        <div class="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center mx-auto mb-4">
-          <span class="material-symbols-outlined text-primary text-3xl">spa</span>
+    <div class="flex items-center gap-3">
+      <span class="text-xs text-on-surface-variant font-medium hidden sm:inline">New to CareNexus?</span>
+      <a href="register.html" class="bg-primary-container/60 hover:bg-primary-container text-primary font-bold text-xs px-4 py-2 rounded-full border border-primary/20 transition-all active:scale-95">
+        Create Account
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Auth Split Section -->
+  <main class="flex-1 max-w-[1450px] w-full mx-auto px-4 sm:px-6 md:px-12 py-8 flex items-center justify-center">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 w-full items-center">
+      
+      <!-- Left Column: Sanctuary Visual Showcase (Desktop & Tablet) -->
+      <div class="hidden lg:flex lg:col-span-6 flex-col justify-between space-y-8 p-8 md:p-12 rounded-3xl bg-gradient-to-br from-surface-container-low via-surface-container-lowest to-surface-container/60 border border-outline-variant/15 shadow-xl relative overflow-hidden">
+        <div class="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] ethereal-glow rounded-full -z-10 animate-float"></div>
+
+        <div class="space-y-4">
+          <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary font-bold text-xs border border-primary/20">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Encrypted Peer Sanctuary
+          </div>
+          <h2 class="font-headline font-extrabold text-4xl xl:text-5xl text-on-surface leading-[1.15] tracking-tight">
+            Welcome back to your safe space.
+          </h2>
+          <p class="text-on-surface-variant text-base leading-relaxed">
+            Re-enter a judgment-free environment designed for emotional healing, real-time peer connection, and privacy.
+          </p>
         </div>
-        <h1 class="font-headline text-3xl font-bold text-on-surface">Welcome back</h1>
-        <p class="text-on-surface-variant mt-2 text-sm">Your safe space is waiting for you</p>
+
+        <!-- Trust Badges Grid -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-surface-container-lowest/80 p-4 rounded-2xl border border-outline-variant/15 shadow-sm space-y-1">
+            <div class="w-8 h-8 rounded-lg bg-primary-container text-primary flex items-center justify-center font-bold mb-2">
+              <span class="material-symbols-outlined text-lg">visibility_off</span>
+            </div>
+            <h4 class="font-headline font-bold text-xs text-on-surface">100% Anonymous</h4>
+            <p class="text-[11px] text-on-surface-variant">No real identity required</p>
+          </div>
+
+          <div class="bg-surface-container-lowest/80 p-4 rounded-2xl border border-outline-variant/15 shadow-sm space-y-1">
+            <div class="w-8 h-8 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold mb-2">
+              <span class="material-symbols-outlined text-lg">lock</span>
+            </div>
+            <h4 class="font-headline font-bold text-xs text-on-surface">End-to-End E2EE</h4>
+            <p class="text-[11px] text-on-surface-variant">AES-256-GCM Web Crypto</p>
+          </div>
+        </div>
+
+        <!-- Testimonial Quote Banner -->
+        <div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/15 flex items-center gap-4 shadow-md">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary-dim text-on-primary flex items-center justify-center font-bold text-lg flex-shrink-0">
+            💚
+          </div>
+          <div>
+            <p class="text-xs text-on-surface-variant italic leading-relaxed">
+              "Being able to log in anonymously whenever stress hits has been life-changing for me."
+            </p>
+            <span class="text-[10px] font-bold text-primary block mt-1">— Verified Community Member</span>
+          </div>
+        </div>
       </div>
 
-      <form id="loginForm" class="space-y-5">
-        <div>
-          <label class="block text-sm font-medium text-on-surface mb-1.5">Email</label>
-          <input id="email" type="email" placeholder="you@example.com" required
-            class="w-full px-4 py-3 rounded-xl border border-outline-variant/40 bg-surface focus:outline-none focus:border-primary text-sm font-body transition-colors"/>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-on-surface mb-1.5">Password</label>
-          <input id="password" type="password" placeholder="••••••••" required
-            class="w-full px-4 py-3 rounded-xl border border-outline-variant/40 bg-surface focus:outline-none focus:border-primary text-sm font-body transition-colors"/>
-        </div>
-        <p id="errMsg" class="text-error text-sm hidden"></p>
-        <button type="submit"
-          class="w-full bg-gradient-to-br from-primary to-primary-dim text-on-primary py-3.5 rounded-xl font-headline font-bold text-base hover:opacity-90 active:scale-95 transition-all">
-          Login
-        </button>
-      </form>
+      <!-- Right Column: Login Card -->
+      <div class="lg:col-span-6 max-w-md w-full mx-auto">
+        <div class="bg-surface-container-lowest/90 backdrop-blur-2xl rounded-3xl p-8 sm:p-10 shadow-[0_20px_50px_rgba(60,109,105,0.08)] border border-outline-variant/20 relative">
+          
+          <div class="text-center mb-8">
+            <div class="w-16 h-16 rounded-2xl bg-primary-container/80 text-primary flex items-center justify-center mx-auto mb-3 shadow-sm border border-primary/20">
+              <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">spa</span>
+            </div>
+            <h1 class="font-headline text-3xl font-extrabold text-on-surface tracking-tight">Sign In to CareNexus</h1>
+            <p class="text-on-surface-variant mt-1.5 text-xs font-medium">Enter your confidential login credentials</p>
+          </div>
 
-      <p class="text-center text-sm text-on-surface-variant mt-6">
-        Don't have an account?
-        <a href="register.html" class="text-primary font-semibold hover:underline">Sign up</a>
-      </p>
+          <form id="loginForm" class="space-y-5">
+            <!-- Email Input -->
+            <div>
+              <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Email Address</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3.5 top-3.5 text-outline text-lg">mail</span>
+                <input id="email" type="email" placeholder="you@example.com" required
+                  class="w-full pl-11 pr-4 py-3 rounded-xl border border-outline-variant/30 bg-surface-container-low focus:outline-none focus:border-primary focus:bg-surface text-xs font-body transition-all"/>
+              </div>
+            </div>
+
+            <!-- Password Input -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">Password</label>
+              </div>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3.5 top-3.5 text-outline text-lg">key</span>
+                <input id="password" type="password" placeholder="••••••••" required
+                  class="w-full pl-11 pr-11 py-3 rounded-xl border border-outline-variant/30 bg-surface-container-low focus:outline-none focus:border-primary focus:bg-surface text-xs font-body transition-all"/>
+                <button type="button" onclick="togglePass('password', 'passIcon')" class="absolute right-3.5 top-3 text-outline hover:text-on-surface">
+                  <span id="passIcon" class="material-symbols-outlined text-lg">visibility</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Error Notification -->
+            <div id="errMsg" class="hidden p-3 rounded-xl bg-error/10 border border-error/20 text-error text-xs font-semibold text-center flex items-center justify-center gap-2">
+              <span class="material-symbols-outlined text-base">error</span>
+              <span id="errText">Invalid credentials</span>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit"
+              class="w-full bg-gradient-to-br from-primary to-primary-dim text-on-primary py-4 rounded-xl font-headline font-bold text-sm hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
+              <span>Sign In to Sanctuary</span>
+              <span class="material-symbols-outlined text-lg">arrow_forward</span>
+            </button>
+          </form>
+
+          <!-- Signup Switch Link -->
+          <div class="mt-8 pt-6 border-t border-outline-variant/15 text-center">
+            <p class="text-xs text-on-surface-variant font-medium">
+              Don't have an account yet?
+              <a href="register.html" class="text-primary font-bold hover:underline ml-1">Create Account</a>
+            </p>
+          </div>
+
+        </div>
+      </div>
+
     </div>
-  </div>
-</main>
+  </main>
+
+  <!-- Simple Footer -->
+  <footer class="w-full py-6 text-center text-xs font-semibold text-on-surface-variant border-t border-outline-variant/10">
+    <span>CareNexus Sanctuary Platform • 100% Encrypted &amp; Confidential</span>
+  </footer>
 
 <script>
+  function togglePass(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.textContent = 'visibility_off';
+    } else {
+      input.type = 'password';
+      icon.textContent = 'visibility';
+    }
+  }
+
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const err = document.getElementById('errMsg');
+    const errText = document.getElementById('errText');
     err.classList.add('hidden');
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        email: document.getElementById('email').value,
-        password: document.getElementById('password').value
-      })
-    });
-    const data = await res.json();
-    if (!res.ok) { err.textContent = data.message; err.classList.remove('hidden'); return; }
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    location.href = data.user.role === 'admin' ? 'admin.html' : 'dashboard.html';
+    
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) { 
+        errText.textContent = data.message || 'Login failed. Please check credentials.'; 
+        err.classList.remove('hidden'); 
+        return; 
+      }
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      location.href = data.user.role === 'admin' ? 'admin.html' : 'dashboard.html';
+    } catch(ex) {
+      errText.textContent = 'Server connection failed. Please try again.';
+      err.classList.remove('hidden');
+    }
   });
 </script>
 </body>

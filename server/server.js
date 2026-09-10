@@ -71,7 +71,7 @@ io.on('connection', (socket) => {
     socket.join(roomId);
   });
 
-  socket.on('send-message', async ({ roomId, senderId, senderRole, text }) => {
+  socket.on('send-message', async ({ roomId, senderId, senderRole, text }, ack) => {
     let msg = null;
     try {
       const validSender = (senderId && mongoose.Types.ObjectId.isValid(senderId)) ? senderId : null;
@@ -80,12 +80,18 @@ io.on('connection', (socket) => {
       console.error('Message save notice:', err.message);
     }
 
-    io.to(roomId).emit('receive-message', {
-      _id: msg ? msg._id : Date.now().toString(),
+    const payload = {
+      _id: msg ? msg._id.toString() : Date.now().toString(),
       text,
       senderRole,
       createdAt: msg ? msg.createdAt : new Date()
-    });
+    };
+
+    io.to(roomId).emit('receive-message', payload);
+
+    if (typeof ack === 'function') {
+      ack({ success: true, message: payload });
+    }
   });
 
   socket.on('trigger-crisis', ({ roomId, crisisLevel, triggers }) => {

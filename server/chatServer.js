@@ -37,24 +37,34 @@ io.on('connection', (socket) => {
     console.log(`Socket ${socket.id} joined chat room: ${roomId}`);
   });
 
-  socket.on('send-message', async ({ roomId, senderId, senderRole, text }) => {
+  socket.on('send-message', async ({ roomId, senderId, senderRole, text }, ack) => {
+    let msg = null;
     try {
       const validSender = (senderId && mongoose.Types.ObjectId.isValid(senderId)) ? senderId : null;
       if (mongoose.connection.readyState === 1) {
-        await Message.create({ roomId, sender: validSender, senderRole, text });
+        msg = await Message.create({ roomId, sender: validSender, senderRole, text });
       } else {
         if (!memoryMessages[roomId]) memoryMessages[roomId] = [];
-        memoryMessages[roomId].push({ roomId, senderRole, text, createdAt: new Date() });
+        const memObj = { _id: Date.now().toString(), roomId, senderRole, text, createdAt: new Date() };
+        memoryMessages[roomId].push(memObj);
+        msg = memObj;
       }
     } catch (e) {
       console.error('Error saving chat message notice:', e.message);
     }
 
-    io.to(roomId).emit('receive-message', {
+    const payload = {
+      _id: msg ? (msg._id ? msg._id.toString() : Date.now().toString()) : Date.now().toString(),
       text,
       senderRole,
-      createdAt: new Date()
-    });
+      createdAt: msg ? msg.createdAt : new Date()
+    };
+
+    io.to(roomId).emit('receive-message', payload);
+
+    if (typeof ack === 'function') {
+      ack({ success: true, message: payload });
+    }
   });
 
   socket.on('typing', ({ roomId, senderRole }) => {

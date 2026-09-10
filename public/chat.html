@@ -382,9 +382,10 @@ function formatMessageText(raw) {
 }
 
 function appendMessage(text, senderRole, createdAt, msgId = null) {
-  if (msgId) {
-    if (renderedMessageIds.has(String(msgId))) return;
-    renderedMessageIds.add(String(msgId));
+  if (msgId && msgId !== 'undefined' && msgId !== 'null') {
+    const idStr = String(msgId);
+    if (renderedMessageIds.has(idStr)) return;
+    renderedMessageIds.add(idStr);
   }
   const box = document.getElementById('messages');
   const isMe = senderRole === user.role;

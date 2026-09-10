@@ -21,8 +21,8 @@
       }
     }
 
-    // Production Node/Express Socket.IO Backend URL (Render web service as configured in render.yaml)
-    return 'https://carenexus.onrender.com';
+    // Production Node/Express Socket.IO Backend URL (Render web service)
+    return 'https://carenexus-9olf.onrender.com';
   }
 
   window.getSocketBaseUrl = getSocketBaseUrl;

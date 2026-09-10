@@ -342,7 +342,10 @@ router.get('/id/:sessionId/messages', auth, async (req, res) => {
 
     const messages = await Message.find({
       $or: [{ roomId: session.roomId }, { sessionId: session._id.toString() }]
-    }).populate('sender', 'username role').sort('createdAt');
+    })
+      .populate('sender', 'username role')
+      .populate({ path: 'replyToMessageId', select: '_id senderRole text isDeleted createdAt' })
+      .sort('createdAt');
     res.json({ messages });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -360,8 +363,50 @@ router.get('/:roomId/messages', auth, async (req, res) => {
 
     const messages = await Message.find({ roomId: req.params.roomId })
       .populate('sender', 'username role')
+      .populate({ path: 'replyToMessageId', select: '_id senderRole text isDeleted createdAt' })
       .sort('createdAt');
     res.json({ messages });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get single message by messageId (for jump-to-target context lookup)
+router.get('/message/:messageId', auth, async (req, res) => {
+  try {
+    const message = await Message.findById(req.params.messageId)
+      .populate('sender', 'username role')
+      .populate({ path: 'replyToMessageId', select: '_id senderRole text isDeleted createdAt' });
+
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+
+    const session = await Session.findOne({ roomId: message.roomId });
+    if (session) {
+      const isMember = session.user.toString() === req.user.id || (session.mentor && session.mentor.toString() === req.user.id) || (session.recommendedMentor && session.recommendedMentor.toString() === req.user.id);
+      if (!isMember) return res.status(403).json({ message: 'Access denied' });
+    }
+
+    res.json({ message });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Report a message (secured by session membership)
+router.post('/message/:messageId/report', auth, async (req, res) => {
+  try {
+    const { reason, notes } = req.body;
+    const message = await Message.findById(req.params.messageId);
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+
+    const session = await Session.findOne({ roomId: message.roomId });
+    if (session) {
+      const isMember = session.user.toString() === req.user.id || (session.mentor && session.mentor.toString() === req.user.id) || (session.recommendedMentor && session.recommendedMentor.toString() === req.user.id);
+      if (!isMember) return res.status(403).json({ message: 'Access denied' });
+    }
+
+    console.log(`[REPORT] User ${req.user.id} reported message ${message._id}: reason=${reason} notes=${notes}`);
+    res.json({ success: true, message: 'Report submitted successfully for administrative review.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

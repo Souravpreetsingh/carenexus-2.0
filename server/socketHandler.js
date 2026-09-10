@@ -105,8 +105,8 @@ function setupSocketIO(io) {
     });
 
     // ─── 2. SEND MESSAGE ───────────────────────────────────────────────────────
-    socket.on('chat:send', async ({ sessionId, roomId, clientMessageId, text, token }, ack) => {
-      console.log(`[CHAT-V2] send received: clientMessageId=${clientMessageId} roomId=${roomId} socket=${socket.id}`);
+    socket.on('chat:send', async ({ sessionId, roomId, clientMessageId, text, replyToMessageId, token }, ack) => {
+      console.log(`[CHAT-V2] send received: clientMessageId=${clientMessageId} roomId=${roomId} replyToMessageId=${replyToMessageId} socket=${socket.id}`);
 
       const authState = authenticateSocketToken(token);
       if (!authState) {
@@ -149,6 +149,29 @@ function setupSocketIO(io) {
           }
         }
 
+        // Validate reply target if replyToMessageId provided
+        let targetReplyMsg = null;
+        if (replyToMessageId && mongoose.connection.readyState === 1) {
+          if (!mongoose.Types.ObjectId.isValid(replyToMessageId)) {
+            if (typeof ack === 'function') ack({ success: false, error: 'INVALID_REPLY_TARGET', message: 'Invalid reply message ID format.' });
+            return;
+          }
+          targetReplyMsg = await Message.findById(replyToMessageId);
+          if (!targetReplyMsg || targetReplyMsg.isDeleted) {
+            if (typeof ack === 'function') ack({ success: false, error: 'INVALID_REPLY_TARGET', message: 'Original message not found or deleted.' });
+            return;
+          }
+
+          // Verify original message belongs to the exact same session and room
+          const targetSessionId = targetReplyMsg.sessionId ? targetReplyMsg.sessionId.toString() : null;
+          const currentSessionId = session ? session._id.toString() : sessionId;
+          if (targetReplyMsg.roomId !== roomId && (targetSessionId && currentSessionId && targetSessionId !== currentSessionId)) {
+            console.warn(`[CHAT-V2] Cross-session reply attempt rejected: targetSession=${targetSessionId} currentSession=${currentSessionId}`);
+            if (typeof ack === 'function') ack({ success: false, error: 'INVALID_REPLY_TARGET', message: 'Cross-session reply is forbidden.' });
+            return;
+          }
+        }
+
         // Idempotency check using clientMessageId
         let msg = null;
         if (clientMessageId && mongoose.connection.readyState === 1) {
@@ -164,7 +187,8 @@ function setupSocketIO(io) {
               clientMessageId,
               sender: validSender,
               senderRole: authState.userRole,
-              text
+              text,
+              replyToMessageId: targetReplyMsg ? targetReplyMsg._id : null
             });
           } else {
             msg = {
@@ -175,7 +199,22 @@ function setupSocketIO(io) {
               sender: validSender,
               senderRole: authState.userRole,
               text,
+              replyToMessageId: targetReplyMsg ? targetReplyMsg._id : null,
               createdAt: new Date()
+            };
+          }
+        }
+
+        let replyToPreview = null;
+        if (targetReplyMsg || (msg && msg.replyToMessageId)) {
+          const rMsg = targetReplyMsg || (await Message.findById(msg.replyToMessageId));
+          if (rMsg) {
+            replyToPreview = {
+              messageId: rMsg._id.toString(),
+              senderRole: rMsg.senderRole,
+              senderId: rMsg.sender ? rMsg.sender.toString() : null,
+              text: rMsg.isDeleted ? 'This message was deleted' : rMsg.text,
+              createdAt: rMsg.createdAt
             };
           }
         }
@@ -188,6 +227,11 @@ function setupSocketIO(io) {
           senderId: authState.userId,
           senderRole: authState.userRole,
           text: msg.text || text,
+          replyToMessageId: msg.replyToMessageId ? msg.replyToMessageId.toString() : null,
+          replyTo: replyToPreview,
+          reactions: msg.reactions || [],
+          isEdited: msg.isEdited || false,
+          isDeleted: msg.isDeleted || false,
           createdAt: msg.createdAt || new Date(),
           status: 'sent'
         };
@@ -232,6 +276,160 @@ function setupSocketIO(io) {
       if (roomId) {
         socket.leave(roomId);
         console.log(`[CHAT-V2] left room: ${roomId} socket=${socket.id}`);
+      }
+    });
+
+    // ─── 3.5. EDIT, DELETE, REACTION & READ RECEIPTS ─────────────────────────
+    socket.on('chat:message:edit', async ({ messageId, text, token }, ack) => {
+      const authState = authenticateSocketToken(token);
+      if (!authState) {
+        if (typeof ack === 'function') ack({ success: false, error: 'UNAUTHORIZED' });
+        return;
+      }
+      if (!messageId || !text || !text.trim()) {
+        if (typeof ack === 'function') ack({ success: false, error: 'INVALID_PAYLOAD' });
+        return;
+      }
+      try {
+        const msg = await Message.findById(messageId);
+        if (!msg) {
+          if (typeof ack === 'function') ack({ success: false, error: 'NOT_FOUND' });
+          return;
+        }
+        if (msg.sender && msg.sender.toString() !== authState.userId) {
+          if (typeof ack === 'function') ack({ success: false, error: 'FORBIDDEN' });
+          return;
+        }
+        const session = await Session.findOne({ roomId: msg.roomId });
+        if (session && session.status !== 'active') {
+          if (typeof ack === 'function') ack({ success: false, error: 'READ_ONLY_SESSION' });
+          return;
+        }
+
+        msg.text = text.trim();
+        msg.isEdited = true;
+        msg.editedAt = new Date();
+        await msg.save();
+
+        const updatePayload = {
+          messageId: msg._id.toString(),
+          roomId: msg.roomId,
+          text: msg.text,
+          isEdited: true,
+          editedAt: msg.editedAt
+        };
+
+        io.to(msg.roomId).emit('chat:message:edit', updatePayload);
+        if (typeof ack === 'function') ack({ success: true, message: updatePayload });
+      } catch (err) {
+        console.error('[CHAT-V2] edit error:', err.message);
+        if (typeof ack === 'function') ack({ success: false, error: err.message });
+      }
+    });
+
+    socket.on('chat:message:delete', async ({ messageId, token }, ack) => {
+      const authState = authenticateSocketToken(token);
+      if (!authState) {
+        if (typeof ack === 'function') ack({ success: false, error: 'UNAUTHORIZED' });
+        return;
+      }
+      if (!messageId) {
+        if (typeof ack === 'function') ack({ success: false, error: 'INVALID_PAYLOAD' });
+        return;
+      }
+      try {
+        const msg = await Message.findById(messageId);
+        if (!msg) {
+          if (typeof ack === 'function') ack({ success: false, error: 'NOT_FOUND' });
+          return;
+        }
+        if (msg.sender && msg.sender.toString() !== authState.userId) {
+          if (typeof ack === 'function') ack({ success: false, error: 'FORBIDDEN' });
+          return;
+        }
+        const session = await Session.findOne({ roomId: msg.roomId });
+        if (session && session.status !== 'active') {
+          if (typeof ack === 'function') ack({ success: false, error: 'READ_ONLY_SESSION' });
+          return;
+        }
+
+        msg.isDeleted = true;
+        msg.deletedAt = new Date();
+        msg.deletedBy = authState.userId;
+        await msg.save();
+
+        const deletePayload = {
+          messageId: msg._id.toString(),
+          roomId: msg.roomId,
+          isDeleted: true
+        };
+
+        io.to(msg.roomId).emit('chat:message:delete', deletePayload);
+        if (typeof ack === 'function') ack({ success: true, message: deletePayload });
+      } catch (err) {
+        console.error('[CHAT-V2] delete error:', err.message);
+        if (typeof ack === 'function') ack({ success: false, error: err.message });
+      }
+    });
+
+    socket.on('chat:reaction:toggle', async ({ messageId, emoji, token }, ack) => {
+      const authState = authenticateSocketToken(token);
+      if (!authState) {
+        if (typeof ack === 'function') ack({ success: false, error: 'UNAUTHORIZED' });
+        return;
+      }
+      if (!messageId || !emoji) {
+        if (typeof ack === 'function') ack({ success: false, error: 'INVALID_PAYLOAD' });
+        return;
+      }
+      try {
+        const msg = await Message.findById(messageId);
+        if (!msg || msg.isDeleted) {
+          if (typeof ack === 'function') ack({ success: false, error: 'NOT_FOUND' });
+          return;
+        }
+        const session = await Session.findOne({ roomId: msg.roomId });
+        if (session && session.status !== 'active') {
+          if (typeof ack === 'function') ack({ success: false, error: 'READ_ONLY_SESSION' });
+          return;
+        }
+
+        // Toggle reaction for user
+        const existingIdx = (msg.reactions || []).findIndex(
+          r => r.emoji === emoji && r.user && r.user.toString() === authState.userId
+        );
+
+        if (existingIdx >= 0) {
+          msg.reactions.splice(existingIdx, 1);
+        } else {
+          if (!msg.reactions) msg.reactions = [];
+          msg.reactions.push({
+            emoji,
+            user: authState.userId,
+            userRole: authState.userRole,
+            createdAt: new Date()
+          });
+        }
+        await msg.save();
+
+        const reactionPayload = {
+          messageId: msg._id.toString(),
+          roomId: msg.roomId,
+          reactions: msg.reactions
+        };
+
+        io.to(msg.roomId).emit('chat:reaction:update', reactionPayload);
+        if (typeof ack === 'function') ack({ success: true, reactions: msg.reactions });
+      } catch (err) {
+        console.error('[CHAT-V2] reaction error:', err.message);
+        if (typeof ack === 'function') ack({ success: false, error: err.message });
+      }
+    });
+
+    socket.on('chat:read', ({ messageId, roomId, token }) => {
+      const authState = authenticateSocketToken(token);
+      if (authState && roomId && messageId) {
+        socket.to(roomId).emit('chat:read', { messageId, readBy: authState.userId, readAt: new Date() });
       }
     });
 

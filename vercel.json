@@ -16,10 +16,6 @@
       "dest": "server/server.js"
     },
     {
-      "src": "/socket.io/(.*)",
-      "dest": "server/server.js"
-    },
-    {
       "src": "/js/(.*)",
       "dest": "public/js/$1"
     },

@@ -151,6 +151,24 @@
     <div id="myBookingsContainer" class="space-y-3"></div>
   </section>
 
+  <!-- My Session History & Talk Again Section -->
+  <section id="mySessionHistorySection" class="mb-10 bg-surface-container-low/60 border border-outline-variant/15 rounded-3xl p-6 md:p-8 shadow-sm">
+    <div class="flex items-center justify-between gap-4 mb-4">
+      <div>
+        <div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest mb-1">
+          <span class="material-symbols-outlined text-lg">history_edu</span> Past Conversations
+        </div>
+        <h3 class="font-headline text-2xl font-extrabold tracking-tight text-on-surface">My Session History</h3>
+      </div>
+      <button onclick="loadMySessionHistory()" class="text-xs font-bold text-primary hover:text-primary-dim flex items-center gap-1 bg-primary-container/40 px-3 py-1.5 rounded-full border border-primary/20 transition-all">
+        <span class="material-symbols-outlined text-sm">refresh</span> Refresh History
+      </button>
+    </div>
+    <div id="mySessionHistoryContainer" class="space-y-3">
+      <div class="text-center py-6 text-xs text-on-surface-variant italic">Loading session history...</div>
+    </div>
+  </section>
+
   <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
     <!-- AI Mood Insights & Daily Journaling Card -->
     <div class="md:col-span-7 bg-surface-container-low rounded-2xl p-6 md:p-8 flex flex-col justify-between shadow-sm border border-outline-variant/15">
@@ -802,6 +820,7 @@ if (!token || !user) {
     loadJournalAnalytics();
     if (window.loadMyBookings) loadMyBookings();
     if (window.loadQuestStatus) loadQuestStatus();
+    loadMySessionHistory();
 
     // Auto-poll user session state every 4 seconds
     setInterval(() => {
@@ -1019,6 +1038,7 @@ async function loadPending() {
             <div class="flex flex-wrap items-center gap-2">
               <h3 class="font-headline font-bold text-lg text-on-surface">Anonymous Support Request</h3>
               <span class="bg-primary/10 text-primary text-[10px] uppercase font-extrabold px-2.5 py-0.5 rounded-full border border-primary/20">${escHtml(tag)}</span>
+              ${s.isReturningSession || s.previousSessionId ? `<span class="bg-indigo-600 text-white text-[10px] uppercase font-extrabold px-2.5 py-0.5 rounded-full shadow-sm">🔄 Returning User</span>` : ''}
               ${isCrisis ? `<span class="bg-rose-600 text-white text-[10px] uppercase font-extrabold px-2.5 py-0.5 rounded-full shadow-sm animate-pulse">🚨 High Distress Priority</span>` : ''}
             </div>
 
@@ -1094,6 +1114,114 @@ async function rejectSession(id) {
     }
   } catch (err) {
     console.error('Error rejecting session:', err);
+  }
+}
+
+async function loadMySessionHistory() {
+  const container = document.getElementById('mySessionHistoryContainer');
+  if (!container) return;
+
+  try {
+    const res = await apiFetch('/api/sessions/history');
+    if (!res.ok) {
+      container.innerHTML = `<div class="text-center py-6 text-xs text-error font-medium">Failed to load session history.</div>`;
+      return;
+    }
+
+    const sessions = await res.json();
+    if (!Array.isArray(sessions) || sessions.length === 0) {
+      container.innerHTML = `
+        <div class="p-8 text-center bg-surface-container-lowest rounded-2xl border border-outline-variant/15">
+          <span class="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-2">history</span>
+          <p class="text-sm font-semibold text-on-surface-variant">No past session history found.</p>
+          <p class="text-xs text-on-surface-variant/70 mt-1">Completed conversations with mentors will appear here.</p>
+        </div>
+      `;
+      return;
+    }
+
+    let html = '';
+    sessions.forEach(s => {
+      const mentorName = s.mentor ? (s.mentor.username || s.mentor.name || 'Peer Mentor') : 'Peer Mentor';
+      const mentorId = s.mentor ? (s.mentor._id || s.mentor) : null;
+      const completedDate = s.completedAt || s.updatedAt || s.createdAt;
+      const formattedDate = new Date(completedDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+      const msgCount = s.messageCount !== undefined ? s.messageCount : 0;
+      const isReturning = Boolean(s.previousSessionId);
+
+      html += `
+        <div class="p-5 rounded-2xl bg-surface-container-lowest border border-outline-variant/15 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all hover:border-primary/30">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-700 flex items-center justify-center font-bold text-lg flex-shrink-0">
+              <span class="material-symbols-outlined">forum</span>
+            </div>
+            <div>
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <h4 class="font-headline font-bold text-on-surface text-base">Mentor: ${escHtml(mentorName)}</h4>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-500/10 text-slate-700 border border-slate-500/20">Read-Only</span>
+                ${isReturning ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-700 border border-indigo-500/20">🔄 Returning Session</span>` : ''}
+              </div>
+              <p class="text-xs text-on-surface-variant font-medium mt-1 flex flex-wrap items-center gap-3">
+                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm text-primary">calendar_today</span> ${formattedDate}</span>
+                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm text-primary">chat</span> ${msgCount} Messages</span>
+                ${s.moodTag ? `<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm text-primary">label</span> ${escHtml(s.moodTag)}</span>` : ''}
+              </p>
+              ${s.userFeelingsNote ? `<p class="text-xs italic text-on-surface-variant/80 mt-1">"${escHtml(s.userFeelingsNote)}"</p>` : ''}
+            </div>
+          </div>
+          <div class="flex items-center gap-2.5 self-end md:self-center">
+            <a href="/chat.html?sessionId=${s._id}&roomId=${s.roomId}" 
+               class="px-4 py-2.5 rounded-xl text-xs font-bold text-primary bg-primary-container/40 hover:bg-primary-container/70 transition-all border border-primary/20 flex items-center gap-1.5 shadow-sm">
+              <span class="material-symbols-outlined text-sm">visibility</span> View Conversation
+            </a>
+            ${mentorId ? `
+              <button onclick="talkAgainWithMentor('${s._id}', '${mentorId}', '${escHtml(mentorName)}')" 
+                      class="px-4 py-2.5 rounded-xl text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md active:scale-95 flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-sm">replay</span> Talk Again
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('Error loading my session history:', err);
+    if (container) container.innerHTML = `<div class="text-center py-6 text-xs text-error font-medium">Error loading session history.</div>`;
+  }
+}
+
+async function talkAgainWithMentor(previousSessionId, mentorId, mentorName) {
+  if (currentSession && ['pending', 'active'].includes(currentSession.status)) {
+    if (typeof showToast === 'function') showToast('You already have an active or pending support session.');
+    return;
+  }
+
+  const promptRes = prompt(`Connect again with mentor ${mentorName}?\n\nOptional: Enter what you would like to talk about today:`);
+  if (promptRes === null) return; // User cancelled prompt
+
+  try {
+    const res = await apiFetch('/api/sessions/reconnect-mentor', {
+      method: 'POST',
+      body: JSON.stringify({
+        previousSessionId,
+        mentorId,
+        userFeelingsNote: promptRes.trim() || undefined
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      if (typeof showToast === 'function') showToast(`Reconnection request sent to ${mentorName}! 🟢`);
+      loadMySession();
+      loadMySessionHistory();
+    } else {
+      if (typeof showToast === 'function') showToast(data.message || data.error || 'Failed to reconnect with mentor.');
+    }
+  } catch (err) {
+    console.error('Error initiating Talk Again request:', err);
+    if (typeof showToast === 'function') showToast('Error sending reconnection request.');
   }
 }
 

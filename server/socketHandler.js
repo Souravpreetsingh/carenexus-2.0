@@ -130,7 +130,7 @@ function setupSocketIO(io) {
           }
         }
 
-        // Verify session participation
+        // Verify session participation and active status
         if (session) {
           const isUser = session.user.toString() === authState.userId;
           const isMentor = session.mentor && session.mentor.toString() === authState.userId;
@@ -138,6 +138,13 @@ function setupSocketIO(io) {
           if (!isUser && !isMentor && !isMentorRole) {
             console.warn(`[CHAT-V2] send rejected - user ${authState.userId} not authorized for room ${roomId}`);
             if (typeof ack === 'function') ack({ success: false, error: 'UNAUTHORIZED_PARTICIPANT' });
+            return;
+          }
+
+          if (session.status !== 'active') {
+            console.warn(`[CHAT-V2] send rejected - session ${session._id} status is '${session.status}' (read-only)`);
+            if (typeof ack === 'function') ack({ success: false, error: 'READ_ONLY_SESSION', message: 'This session has ended and is read-only.' });
+            socket.emit('chat:error', { error: 'READ_ONLY_SESSION', message: 'This session has ended and is read-only.' });
             return;
           }
         }
@@ -245,6 +252,17 @@ function setupSocketIO(io) {
       
       const authState = authenticateSocketToken(token) || { userId: socket.userId, userRole: data.senderRole || socket.userRole };
       
+      try {
+        if (mongoose.connection.readyState === 1) {
+          const session = await Session.findOne({ roomId });
+          if (session && session.status !== 'active') {
+            console.warn(`[CHAT-V2] legacy send-message rejected - session ${session._id} is status '${session.status}'`);
+            if (typeof ack === 'function') ack({ success: false, error: 'READ_ONLY_SESSION', message: 'This session has ended and is read-only.' });
+            return;
+          }
+        }
+      } catch (e) {}
+
       let msg = null;
       try {
         const validSender = (authState.userId && mongoose.Types.ObjectId.isValid(authState.userId)) ? authState.userId : null;

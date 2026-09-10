@@ -90,6 +90,24 @@
   <p class="text-on-surface-variant text-xs max-w-xs text-center">This space is completely private. Your identity remains protected.</p>
 </div>
 
+<!-- Read-Only Completed Session Banner -->
+<div id="readOnlyBanner" class="hidden w-full max-w-6xl mx-auto px-4 mb-3">
+  <div class="bg-slate-800 text-slate-100 border border-slate-700 rounded-2xl p-4 shadow-md flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 font-bold">
+        <span class="material-symbols-outlined text-xl">lock</span>
+      </div>
+      <div>
+        <h4 class="font-headline font-bold text-slate-100 text-sm">This conversation has ended (Read-Only Mode)</h4>
+        <p class="text-slate-300 text-xs mt-0.5">Historical session messages are displayed for reflection. New message sending is disabled.</p>
+      </div>
+    </div>
+    <a href="dashboard.html" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 transition-colors flex items-center gap-1.5 flex-shrink-0 shadow">
+      <span class="material-symbols-outlined text-sm">arrow_back</span> Return to Dashboard
+    </a>
+  </div>
+</div>
+
 <!-- Real-Time AI Crisis Safety Escalation Banner -->
 <div id="crisisBanner" class="hidden w-full max-w-6xl mx-auto px-4 mb-3">
   <div class="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">

@@ -144,10 +144,17 @@ router.post('/:id/reject', auth, async (req, res) => {
 router.get('/pending', auth, async (req, res) => {
   try {
     if (req.user.role !== 'mentor') return res.status(403).json({ message: 'Mentors only' });
-    const sessions = await Session.find({ status: 'pending' })
+    const rawSessions = await Session.find({ status: 'pending' })
       .populate('user', 'username')
       .populate('recommendedMentor', 'username')
       .sort({ createdAt: -1 });
+
+    const sessions = rawSessions.map(s => {
+      const obj = s.toObject();
+      obj.isReturningSession = Boolean(s.previousSessionId);
+      return obj;
+    });
+
     res.json({ sessions });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -202,8 +209,141 @@ router.post('/:id/complete', auth, async (req, res) => {
     if (!isOwner) return res.status(403).json({ message: 'Unauthorized' });
 
     session.status = 'completed';
+    session.completedAt = new Date();
     await session.save();
     res.json({ session, message: 'Session completed.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// User: Reconnect / Talk Again with Same Mentor
+router.post('/reconnect-mentor', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'user') return res.status(403).json({ message: 'Only users can request sessions' });
+    const { mentorId, previousSessionId } = req.body;
+
+    if (!previousSessionId) {
+      return res.status(400).json({ message: 'previousSessionId is required' });
+    }
+
+    // 1. Verify previous session exists
+    const prevSession = await Session.findById(previousSessionId);
+    if (!prevSession) {
+      return res.status(404).json({ message: 'Previous session not found' });
+    }
+
+    // 2. Security: Verify previous session belongs to authenticated user
+    if (prevSession.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized: Previous session does not belong to you' });
+    }
+
+    // 3. Verify previous session is completed
+    if (prevSession.status !== 'completed') {
+      return res.status(400).json({ message: 'Previous session must be completed before starting a new request' });
+    }
+
+    // 4. Determine target mentor ID & validate mentor exists
+    const targetMentorId = mentorId || (prevSession.mentor ? prevSession.mentor.toString() : (prevSession.recommendedMentor ? prevSession.recommendedMentor.toString() : null));
+    if (!targetMentorId) {
+      return res.status(400).json({ message: 'No valid mentor found for this previous session' });
+    }
+
+    // Security: If mentorId was explicitly supplied, verify it matches the mentor from previous session
+    const prevMentorId = prevSession.mentor ? prevSession.mentor.toString() : (prevSession.recommendedMentor ? prevSession.recommendedMentor.toString() : null);
+    if (mentorId && prevMentorId && mentorId !== prevMentorId) {
+      return res.status(400).json({ message: 'mentorId does not match the mentor from the specified previous session' });
+    }
+
+    const targetMentor = await User.findById(targetMentorId);
+    if (!targetMentor || targetMentor.role !== 'mentor') {
+      return res.status(400).json({ message: 'Target mentor not found or invalid' });
+    }
+
+    // 5. Prevent duplicate pending/active requests for the user
+    const existing = await Session.findOne({
+      user: req.user.id,
+      status: { $in: ['pending', 'active'] }
+    }).populate('recommendedMentor', 'username specialties rating bio education achievements')
+      .populate('mentor', 'username specialties rating bio education achievements');
+
+    if (existing) {
+      return res.status(400).json({ success: false, error: 'DUPLICATE_ACTIVE_REQUEST', message: 'You already have an active or pending session request', session: existing });
+    }
+
+    // 6. Create completely NEW session with NEW roomId
+    const newRoomId = uuidv4();
+    const newSession = await Session.create({
+      user: req.user.id,
+      mentor: null,
+      recommendedMentor: targetMentor._id,
+      roomId: newRoomId,
+      status: 'pending',
+      previousSessionId: prevSession._id,
+      moodTag: prevSession.moodTag || 'General Support',
+      userFeelingsNote: `Talk Again request with ${targetMentor.username}`,
+      aiGuidance: prevSession.aiGuidance || {}
+    });
+
+    const populatedSession = await Session.findById(newSession._id)
+      .populate('recommendedMentor', 'username specialties rating bio education achievements')
+      .populate('user', 'username');
+
+    const io = req.app.get('io');
+    if (io) io.emit('new-request', { session: populatedSession });
+
+    res.status(201).json({ success: true, session: populatedSession });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// User or Mentor: Get Session History with metadata & message counts
+router.get('/history', auth, async (req, res) => {
+  try {
+    let query = {};
+    if (req.user.role === 'user') {
+      query = { user: req.user.id };
+    } else {
+      query = { $or: [{ mentor: req.user.id }, { recommendedMentor: req.user.id }] };
+    }
+
+    const rawSessions = await Session.find(query)
+      .populate('user', 'username')
+      .populate('mentor', 'username specialties rating bio education achievements')
+      .populate('recommendedMentor', 'username specialties rating bio education achievements')
+      .populate('previousSessionId')
+      .sort({ createdAt: -1 });
+
+    const sessions = await Promise.all(rawSessions.map(async (s) => {
+      const msgCount = await Message.countDocuments({
+        $or: [{ roomId: s.roomId }, { sessionId: s._id.toString() }]
+      });
+      const obj = s.toObject();
+      obj.messageCount = msgCount;
+      obj.isReturningSession = !!s.previousSessionId;
+      return obj;
+    }));
+
+    res.json({ success: true, sessions });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get chat history by sessionId (secured by membership)
+router.get('/id/:sessionId/messages', auth, async (req, res) => {
+  try {
+    const session = await Session.findById(req.params.sessionId);
+    if (!session) return res.status(404).json({ message: 'Session not found' });
+
+    const isMember = session.user.toString() === req.user.id || (session.mentor && session.mentor.toString() === req.user.id) || (session.recommendedMentor && session.recommendedMentor.toString() === req.user.id);
+    if (!isMember) return res.status(403).json({ message: 'Access denied to private room' });
+
+    const messages = await Message.find({
+      $or: [{ roomId: session.roomId }, { sessionId: session._id.toString() }]
+    }).populate('sender', 'username role').sort('createdAt');
+    res.json({ messages });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -215,7 +355,7 @@ router.get('/:roomId/messages', auth, async (req, res) => {
     const session = await Session.findOne({ roomId: req.params.roomId });
     if (!session) return res.status(404).json({ message: 'Session not found' });
 
-    const isMember = session.user.toString() === req.user.id || (session.mentor && session.mentor.toString() === req.user.id) || req.user.role === 'mentor';
+    const isMember = session.user.toString() === req.user.id || (session.mentor && session.mentor.toString() === req.user.id) || (session.recommendedMentor && session.recommendedMentor.toString() === req.user.id);
     if (!isMember) return res.status(403).json({ message: 'Access denied to private room' });
 
     const messages = await Message.find({ roomId: req.params.roomId })

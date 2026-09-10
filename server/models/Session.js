@@ -15,7 +15,13 @@ const sessionSchema = new mongoose.Schema({
     distressLevel: { type: String, default: 'none' },
     suggestedApproach: { type: String, default: '' }
   },
+  previousSessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', default: null },
+  completedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }
 });
+
+sessionSchema.index({ user: 1, status: 1 });
+sessionSchema.index({ mentor: 1, status: 1 });
+sessionSchema.index({ previousSessionId: 1 });
 
 module.exports = mongoose.model('Session', sessionSchema);

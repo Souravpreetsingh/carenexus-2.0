@@ -10,8 +10,9 @@
   // 1. Session & Auth State
   const token = localStorage.getItem('token') || localStorage.getItem('care_token');
   const user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('care_user') || 'null');
-  const roomId = localStorage.getItem('roomId');
-  const sessionId = localStorage.getItem('sessionId');
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomId = urlParams.get('roomId') || localStorage.getItem('roomId');
+  const sessionId = urlParams.get('sessionId') || localStorage.getItem('sessionId');
 
   if (!token || !user || !roomId) {
     window.location.href = 'dashboard.html';
@@ -338,6 +339,7 @@
 
   // 13. Send Message Action
   async function sendMessage() {
+    if (isReadOnlyMode) return;
     const input = document.getElementById('msgInput');
     if (!input) return;
     const text = input.value.trim();
@@ -628,6 +630,69 @@
     mediaRecorder.stop();
   }
 
+  // 18. Session Status & Read-Only Engine
+  let isReadOnlyMode = false;
+
+  async function checkSessionStatus() {
+    try {
+      let target = null;
+      if (sessionId) target = `/api/sessions/id/${sessionId}`;
+      else if (roomId) target = `/api/sessions/room/${roomId}`;
+      if (!target) return;
+
+      const res = await fetch(target, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const s = data.session || data;
+        if (s && s.status === 'completed') {
+          enableReadOnlyMode();
+        }
+      }
+    } catch (err) {
+      console.error('[CHAT-V2] Error checking session status:', err);
+    }
+  }
+
+  function enableReadOnlyMode() {
+    isReadOnlyMode = true;
+    console.log('[CHAT-V2] Session is completed. Enabling Read-Only Mode.');
+    const banner = document.getElementById('readOnlyBanner');
+    if (banner) banner.classList.remove('hidden');
+
+    const msgInput = document.getElementById('msgInput');
+    if (msgInput) {
+      msgInput.disabled = true;
+      msgInput.placeholder = 'This session has ended (Read-only mode).';
+      msgInput.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+    }
+
+    const micBtn = document.getElementById('micBtn');
+    if (micBtn) {
+      micBtn.disabled = true;
+      micBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+    }
+
+    const callBtns = document.querySelectorAll('button[onclick*="startCall"]');
+    callBtns.forEach(btn => {
+      btn.disabled = true;
+      btn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+    });
+
+    const endBtn = document.querySelector('button[onclick*="endSession"]');
+    if (endBtn) {
+      endBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">arrow_back</span> Dashboard`;
+      endBtn.onclick = () => window.location.href = 'dashboard.html';
+    }
+  }
+
   // Export functions to global scope
   window.sendMessage = sendMessage;
   window.endSession = endSession;
@@ -636,6 +701,7 @@
   window.stopAndSendAudioRecording = stopAndSendAudioRecording;
 
   // Initialize data loading
+  checkSessionStatus();
   loadHistory();
   loadMentorBriefing();
 })();

@@ -170,6 +170,18 @@
 
   function formatMessageText(raw) {
     if (!raw) return '';
+    if (raw.startsWith('AUDIO_DATA:')) {
+      const audioDataUrl = raw.substring('AUDIO_DATA:'.length);
+      return `
+        <div class="flex flex-col gap-1 my-0.5 min-w-[200px]">
+          <div class="flex items-center gap-1.5 font-semibold text-xs mb-1 opacity-90">
+            <span class="material-symbols-outlined text-base">graphic_eq</span>
+            <span>Voice Note</span>
+          </div>
+          <audio controls src="${audioDataUrl}" class="w-full max-w-[260px] h-10 rounded-lg outline-none"></audio>
+        </div>
+      `;
+    }
     let safe = escHtml(raw);
     safe = safe.replace(/`([^`]+)`/g, '<code class="bg-surface-container-high px-1.5 py-0.5 rounded text-xs font-mono">$1</code>');
     safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -484,9 +496,144 @@
     window.location.href = 'dashboard.html';
   }
 
+  // 17. Voice Audio Recording Logic
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let recordingInterval = null;
+  let recordingSeconds = 0;
+
+  async function sendCustomMessage(text) {
+    if (!text) return;
+    const activeSocket = getCareNexusSocket();
+    const clientMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const optimisticMsg = {
+      clientMessageId,
+      roomId,
+      sessionId,
+      senderId: user.id || user._id,
+      senderRole: user.role,
+      text: text,
+      createdAt: new Date().toISOString(),
+      status: 'sending'
+    };
+    messageState.set(clientMessageId, optimisticMsg);
+    renderFromState();
+
+    const encryptedText = await encryptMessageText(text, roomId);
+    const payload = {
+      sessionId,
+      roomId,
+      clientMessageId,
+      text: encryptedText,
+      token
+    };
+
+    if (activeSocket) {
+      activeSocket.emit('chat:send', payload, (ack) => {
+        if (ack && ack.success && ack.message) {
+          ingestMessage(ack.message);
+        } else if (ack && !ack.success) {
+          const item = messageState.get(clientMessageId);
+          if (item) {
+            item.status = 'failed';
+            renderFromState();
+          }
+        }
+      });
+    }
+  }
+
+  async function toggleAudioRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      stopAndSendAudioRecording();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+
+      let mimeType = 'audio/webm';
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+          mimeType = 'audio/ogg';
+        }
+      }
+
+      mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) audioChunks.push(e.data);
+      };
+
+      mediaRecorder.start(100);
+
+      document.getElementById('standardInputBar')?.classList.add('hidden');
+      document.getElementById('recordingBar')?.classList.remove('hidden');
+
+      recordingSeconds = 0;
+      const timerElem = document.getElementById('recordingTimer');
+      if (timerElem) timerElem.textContent = '00:00';
+
+      clearInterval(recordingInterval);
+      recordingInterval = setInterval(() => {
+        recordingSeconds++;
+        const m = String(Math.floor(recordingSeconds / 60)).padStart(2, '0');
+        const s = String(recordingSeconds % 60).padStart(2, '0');
+        if (timerElem) timerElem.textContent = `${m}:${s}`;
+      }, 1000);
+    } catch (err) {
+      alert('Microphone access required to record voice notes: ' + err.message);
+    }
+  }
+
+  function cancelAudioRecording() {
+    if (mediaRecorder) {
+      mediaRecorder.onstop = null;
+      if (mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      if (mediaRecorder.stream) mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    }
+    mediaRecorder = null;
+    audioChunks = [];
+    clearInterval(recordingInterval);
+    document.getElementById('recordingBar')?.classList.add('hidden');
+    document.getElementById('standardInputBar')?.classList.remove('hidden');
+  }
+
+  function stopAndSendAudioRecording() {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+
+    mediaRecorder.onstop = async () => {
+      if (mediaRecorder.stream) mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Audio = reader.result;
+        const audioMessageText = `AUDIO_DATA:${base64Audio}`;
+        await sendCustomMessage(audioMessageText);
+      };
+      reader.readAsDataURL(blob);
+
+      mediaRecorder = null;
+      audioChunks = [];
+      clearInterval(recordingInterval);
+      document.getElementById('recordingBar')?.classList.add('hidden');
+      document.getElementById('standardInputBar')?.classList.remove('hidden');
+    };
+
+    mediaRecorder.stop();
+  }
+
   // Export functions to global scope
   window.sendMessage = sendMessage;
   window.endSession = endSession;
+  window.toggleAudioRecording = toggleAudioRecording;
+  window.cancelAudioRecording = cancelAudioRecording;
+  window.stopAndSendAudioRecording = stopAndSendAudioRecording;
 
   // Initialize data loading
   loadHistory();

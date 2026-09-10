@@ -1,6 +1,7 @@
 /**
  * CareNexus Chat V2 Engine
- * State-driven message architecture with AES-256-GCM encryption, idempotency, and namespaced Socket.IO events.
+ * State-driven message architecture with AES-256-GCM encryption, client message idempotency,
+ * singleton Socket.IO connection manager, and namespaced real-time delivery protocol.
  */
 
 (function () {
@@ -23,16 +24,51 @@
   let roomCryptoKey = null;
   let typingTimer = null;
 
-  // Global socket reference
-  const socket = typeof io !== 'undefined' ? io() : null;
+  // 3. Singleton Socket.IO Connection Manager
+  function getCareNexusSocket() {
+    if (window._careNexusSocket && window._careNexusSocket.connected) {
+      return window._careNexusSocket;
+    }
+    if (!window._careNexusSocket) {
+      if (typeof io === 'undefined') {
+        console.error('[CHAT-V2] Socket.IO client library (io) is missing!');
+        return null;
+      }
+      window._careNexusSocket = io({
+        auth: { token: token },
+        transports: ['websocket', 'polling']
+      });
 
-  // 3. Header & UI Initialization
+      window._careNexusSocket.on('connect', () => {
+        console.log(`[CHAT-V2] socket connected: ${window._careNexusSocket.id}`);
+        console.log(`[CHAT-V2] joining room: ${roomId} session: ${sessionId}`);
+        window._careNexusSocket.emit('chat:join', { sessionId, roomId, token }, (ack) => {
+          if (ack && ack.success) {
+            console.log(`[CHAT-V2] joined room: ${roomId} members: ${ack.membersCount}`);
+          } else {
+            console.warn(`[CHAT-V2] join failed:`, ack ? ack.error : 'No ACK');
+          }
+        });
+      });
+
+      window._careNexusSocket.on('reconnect', () => {
+        console.log(`[CHAT-V2] socket reconnected: ${window._careNexusSocket.id}`);
+        window._careNexusSocket.emit('chat:join', { sessionId, roomId, token });
+      });
+    }
+    return window._careNexusSocket;
+  }
+
+  window.getCareNexusSocket = getCareNexusSocket;
+  const socket = getCareNexusSocket();
+
+  // 4. Header & UI Initialization
   const chatTitle = document.getElementById('chatTitle');
   if (chatTitle) {
     chatTitle.textContent = user.role === 'mentor' ? 'Chatting with User' : 'Chatting with Mentor';
   }
 
-  // 4. AES-256-GCM Encryption Helpers
+  // 5. AES-256-GCM Encryption Helpers
   async function getRoomKey(roomIdentifier) {
     if (roomCryptoKey) return roomCryptoKey;
     const enc = new TextEncoder();
@@ -93,7 +129,7 @@
     }
   }
 
-  // 5. HTML Sanitization & Formatting
+  // 6. HTML Sanitization & Formatting
   function escHtml(t) {
     if (!t) return '';
     return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -110,7 +146,7 @@
     return safe;
   }
 
-  // 6. State Rendering Engine
+  // 7. State Rendering Engine
   function renderFromState() {
     const box = document.getElementById('messages');
     if (!box) return;
@@ -151,7 +187,7 @@
           </div>
         `;
       } else {
-        const statusIndicator = msg.status === 'sending' ? ' <span class="opacity-60">⏳</span>' : '';
+        const statusIndicator = msg.status === 'sending' ? ' <span class="opacity-60">⏳</span>' : (msg.status === 'failed' ? ' <span class="text-error font-bold">⚠️ Failed</span>' : '');
         wrap.innerHTML = `
           <div class="flex items-end gap-3 max-w-[85%]">
             <div>
@@ -169,13 +205,12 @@
     }
   }
 
-  // 7. Message Ingestion / State Mutation Helper
+  // 8. Message Ingestion / State Mutation Helper
   async function ingestMessage(rawMsg) {
     if (!rawMsg) return;
     const key = rawMsg.clientMessageId || rawMsg._id || `msg_${Date.now()}`;
     const decryptedText = await decryptMessageText(rawMsg.text, roomId);
 
-    // If matching clientMessageId exists in state, update it with server details
     let existingKey = null;
     if (rawMsg.clientMessageId && messageState.has(rawMsg.clientMessageId)) {
       existingKey = rawMsg.clientMessageId;
@@ -202,7 +237,7 @@
     renderFromState();
   }
 
-  // 8. Fetch History from Server
+  // 9. Fetch History from Server
   async function loadHistory() {
     try {
       const res = await fetch(`/api/sessions/${roomId}/messages`, {
@@ -215,11 +250,11 @@
         }
       }
     } catch (err) {
-      console.error('Failed to load message history:', err);
+      console.error('[CHAT-V2] Failed to load message history:', err);
     }
   }
 
-  // 9. Load Session Details for Mentor Briefing
+  // 10. Load Session Details for Mentor Briefing
   async function loadMentorBriefing() {
     if (user.role !== 'mentor') return;
     try {
@@ -244,11 +279,11 @@
         }
       }
     } catch (err) {
-      console.error('Error fetching session briefing:', err);
+      console.error('[CHAT-V2] Error fetching session briefing:', err);
     }
   }
 
-  // 10. Distress Keyword Check
+  // 11. Distress Keyword Check
   const CRISIS_TERMS = ['suicide', 'kill myself', 'end my life', 'want to die', 'hurt myself', 'self harm', 'end it all', 'give up'];
   function checkDistress(text) {
     if (!text) return false;
@@ -256,7 +291,7 @@
     return CRISIS_TERMS.some(term => lower.includes(term));
   }
 
-  // 11. Send Message Action
+  // 12. Send Message Action
   async function sendMessage() {
     const input = document.getElementById('msgInput');
     if (!input) return;
@@ -266,15 +301,15 @@
     input.value = '';
     input.style.height = 'auto';
 
-    if (socket) {
-      socket.emit('chat:typing:stop', { roomId, senderRole: user.role });
-      socket.emit('stop-typing', { roomId, senderRole: user.role });
+    const activeSocket = getCareNexusSocket();
+    if (activeSocket) {
+      activeSocket.emit('chat:typing:stop', { roomId, senderRole: user.role });
     }
 
     if (checkDistress(text)) {
       const cb = document.getElementById('crisisBanner');
       if (cb) cb.classList.remove('hidden');
-      if (socket) socket.emit('trigger-crisis', { roomId, crisisLevel: 'critical', triggers: ['distress_keywords'] });
+      if (activeSocket) activeSocket.emit('trigger-crisis', { roomId, crisisLevel: 'critical', triggers: ['distress_keywords'] });
     }
 
     const clientMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -297,32 +332,35 @@
     const encryptedText = await encryptMessageText(text, roomId);
 
     const payload = {
-      roomId,
       sessionId,
+      roomId,
       clientMessageId,
-      senderId: user.id || user._id,
-      senderRole: user.role,
-      text: encryptedText
+      text: encryptedText,
+      token
     };
 
-    if (socket) {
-      // Primary Chat V2 event
-      socket.emit('chat:send', payload, (ack) => {
+    console.log(`[CHAT-V2] sending message: ${clientMessageId}`);
+
+    if (activeSocket) {
+      activeSocket.emit('chat:send', payload, (ack) => {
+        console.log(`[CHAT-V2] server acknowledgement received:`, ack ? ack.success : false);
         if (ack && ack.success && ack.message) {
           ingestMessage(ack.message);
+        } else if (ack && !ack.success) {
+          const item = messageState.get(clientMessageId);
+          if (item) {
+            item.status = 'failed';
+            renderFromState();
+          }
         }
       });
     }
   }
 
-  // 12. Socket Setup & Namespaced Event Listeners
+  // 13. Socket Event Listeners
   if (socket) {
-    // Join room on namespaced event and legacy event
-    socket.emit('chat:join', { roomId, token });
-    socket.emit('join-room', roomId);
-
-    // Incoming messages
     socket.on('chat:message', async (msgPayload) => {
+      console.log(`[CHAT-V2] message received: ${msgPayload._id || msgPayload.clientMessageId}`);
       const indicator = document.getElementById('typingIndicator');
       if (indicator) indicator.classList.add('hidden');
       await ingestMessage(msgPayload);
@@ -334,7 +372,6 @@
       await ingestMessage(msgPayload);
     });
 
-    // Typing indicators
     socket.on('chat:typing:start', ({ senderRole }) => {
       if (senderRole !== user.role) {
         const indicator = document.getElementById('typingIndicator');
@@ -351,33 +388,17 @@
       }
     });
 
-    socket.on('typing', ({ senderRole }) => {
-      if (senderRole !== user.role) {
-        const indicator = document.getElementById('typingIndicator');
-        const textSpan = document.getElementById('typingText');
-        if (textSpan) textSpan.textContent = `${senderRole === 'mentor' ? 'Mentor' : 'User'} is typing...`;
-        if (indicator) indicator.classList.remove('hidden');
-      }
-    });
-
-    socket.on('stop-typing', ({ senderRole }) => {
-      if (senderRole !== user.role) {
-        const indicator = document.getElementById('typingIndicator');
-        if (indicator) indicator.classList.add('hidden');
-      }
-    });
-
     socket.on('crisis-alert', () => {
       const cb = document.getElementById('crisisBanner');
       if (cb) cb.classList.remove('hidden');
     });
 
     socket.on('chat:error', (err) => {
-      console.error('Chat server error:', err);
+      console.error('[CHAT-V2] server error notice:', err);
     });
   }
 
-  // 13. UI Event Attachments (Input height, Keydown, Scroll tracking)
+  // 14. UI Event Attachments (Input height, Keydown, Scroll tracking)
   const messagesBox = document.getElementById('messages');
   if (messagesBox) {
     messagesBox.addEventListener('scroll', () => {
@@ -391,13 +412,12 @@
     msgInput.addEventListener('input', () => {
       msgInput.style.height = 'auto';
       msgInput.style.height = Math.min(msgInput.scrollHeight, 128) + 'px';
-      if (socket) {
-        socket.emit('chat:typing:start', { roomId, senderRole: user.role });
-        socket.emit('typing', { roomId, senderRole: user.role });
+      const activeSocket = getCareNexusSocket();
+      if (activeSocket) {
+        activeSocket.emit('chat:typing:start', { roomId });
         clearTimeout(typingTimer);
         typingTimer = setTimeout(() => {
-          socket.emit('chat:typing:stop', { roomId, senderRole: user.role });
-          socket.emit('stop-typing', { roomId, senderRole: user.role });
+          activeSocket.emit('chat:typing:stop', { roomId });
         }, 1500);
       }
     });
@@ -410,7 +430,7 @@
     });
   }
 
-  // 14. Session Termination Action
+  // 15. Session Termination Action
   async function endSession() {
     if (!confirm('End this session?')) return;
     if (typeof window.hangUp === 'function') window.hangUp();
@@ -422,16 +442,16 @@
     } catch (err) {
       console.error('Error completing session:', err);
     }
-    if (socket) {
-      socket.emit('chat:leave', roomId);
-      socket.emit('leave-room', roomId);
+    const activeSocket = getCareNexusSocket();
+    if (activeSocket) {
+      activeSocket.emit('chat:leave', roomId);
     }
     localStorage.removeItem('roomId');
     localStorage.removeItem('sessionId');
     window.location.href = 'dashboard.html';
   }
 
-  // Export functions to global scope for HTML onclick handlers
+  // Export functions to global scope
   window.sendMessage = sendMessage;
   window.endSession = endSession;
 

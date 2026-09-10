@@ -105,10 +105,25 @@ router.post('/:id/cancel', auth, async (req, res) => {
     if (session.user.toString() !== req.user.id && (session.mentor && session.mentor.toString() !== req.user.id)) {
       return res.status(403).json({ message: 'Unauthorized' });
     }
-    session.status = 'completed';
+    session.status = 'cancelled';
     await session.save();
-    await Message.deleteMany({ roomId: session.roomId });
     res.json({ message: 'Session request cancelled successfully.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Mentor: reject/decline a pending request
+router.post('/:id/reject', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'mentor') return res.status(403).json({ message: 'Mentors only' });
+    const session = await Session.findOneAndUpdate(
+      { _id: req.params.id, status: 'pending' },
+      { status: 'rejected' },
+      { new: true }
+    );
+    if (!session) return res.status(409).json({ message: 'This request is no longer available or already processed.' });
+    res.json({ message: 'Session request rejected.', session });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -120,23 +135,27 @@ router.get('/pending', auth, async (req, res) => {
     if (req.user.role !== 'mentor') return res.status(403).json({ message: 'Mentors only' });
     const sessions = await Session.find({ status: 'pending' })
       .populate('user', 'username')
-      .populate('recommendedMentor', 'username');
+      .populate('recommendedMentor', 'username')
+      .sort({ createdAt: -1 });
     res.json({ sessions });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Mentor: accept a session
+// Mentor: accept a session (Atomic operation to prevent race conditions)
 router.post('/:id/accept', auth, async (req, res) => {
   try {
     if (req.user.role !== 'mentor') return res.status(403).json({ message: 'Mentors only' });
-    const session = await Session.findByIdAndUpdate(
-      req.params.id,
+    const session = await Session.findOneAndUpdate(
+      { _id: req.params.id, status: 'pending' },
       { mentor: req.user.id, status: 'active' },
       { new: true }
     ).populate('user', 'username');
-    if (!session) return res.status(404).json({ message: 'Session not found' });
+    
+    if (!session) {
+      return res.status(409).json({ message: 'This request is no longer available.' });
+    }
     res.json({ session });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -165,19 +184,25 @@ router.post('/:id/complete', auth, async (req, res) => {
     const session = await Session.findById(req.params.id);
     if (!session) return res.status(404).json({ message: 'Session not found' });
     const isOwner = session.user.toString() === req.user.id || (session.mentor && session.mentor.toString() === req.user.id);
+    if (!isOwner) return res.status(403).json({ message: 'Unauthorized' });
+
     session.status = 'completed';
     await session.save();
-    // Ephemeral Privacy: Auto-purge chat messages upon session completion
-    await Message.deleteMany({ roomId: session.roomId });
-    res.json({ session, message: 'Session completed and private messages purged.' });
+    res.json({ session, message: 'Session completed.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Get chat history for a room
+// Get chat history for a room (secured by membership)
 router.get('/:roomId/messages', auth, async (req, res) => {
   try {
+    const session = await Session.findOne({ roomId: req.params.roomId });
+    if (!session) return res.status(404).json({ message: 'Session not found' });
+
+    const isMember = session.user.toString() === req.user.id || (session.mentor && session.mentor.toString() === req.user.id) || req.user.role === 'mentor';
+    if (!isMember) return res.status(403).json({ message: 'Access denied to private room' });
+
     const messages = await Message.find({ roomId: req.params.roomId })
       .populate('sender', 'username role')
       .sort('createdAt');

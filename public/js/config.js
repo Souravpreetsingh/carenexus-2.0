@@ -43,10 +43,14 @@
     console.log(`[CHAT-V2] Socket URL: ${socketUrl}`);
     console.log(`[CHAT-V2] connecting...`);
 
+    // Polling-first connection strategy ensures smooth HTTP handshake followed by seamless WebSocket upgrade
     const socketOpts = {
       auth: { token: token },
-      transports: ['websocket', 'polling'],
-      withCredentials: true
+      transports: ['polling', 'websocket'],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 15,
+      reconnectionDelay: 1000
     };
 
     if (!window._careNexusSocket) {
@@ -69,6 +73,10 @@
             }
           });
         }
+      });
+
+      window._careNexusSocket.io?.engine?.on('upgrade', (transport) => {
+        console.log(`[CHAT-V2] transport upgraded to=${transport.name}`);
       });
 
       window._careNexusSocket.on('connect_error', (err) => {

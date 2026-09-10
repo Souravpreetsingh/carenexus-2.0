@@ -12,7 +12,17 @@ const Message = require('./models/Message');
 const PORT = process.env.CHAT_PORT || 3001;
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    credentials: true,
+    methods: ['GET', 'POST']
+  },
+  transports: ['polling', 'websocket'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
 
 // Connect to MongoDB Atlas / MONGO_URI for chat persistence
 const customUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/carenexus';

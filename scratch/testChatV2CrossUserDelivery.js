@@ -184,12 +184,14 @@ async function runCrossUserDeliveryTest() {
       }
     });
 
-    userSocket.emit('chat:send', {
-      sessionId,
-      roomId,
-      clientMessageId: msgId3,
-      text: 'ENC:iv_user:encrypted_post_reconnect',
-      token: userToken
+    await new Promise(r => {
+      userSocket.emit('chat:send', {
+        sessionId,
+        roomId,
+        clientMessageId: msgId3,
+        text: 'ENC:iv_user:encrypted_post_reconnect',
+        token: userToken
+      }, r);
     });
 
     await new Promise(r => setTimeout(r, 400));

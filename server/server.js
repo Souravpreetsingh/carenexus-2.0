@@ -14,7 +14,17 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    credentials: true,
+    methods: ['GET', 'POST']
+  },
+  transports: ['polling', 'websocket'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
 app.set('io', io);
 
 // Middleware

@@ -58,8 +58,11 @@
 
       window._careNexusSocket = io(socketUrl, {
         auth: { token: token },
-        transports: ['websocket', 'polling'],
-        withCredentials: true
+        transports: ['polling', 'websocket'],
+        withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: 15,
+        reconnectionDelay: 1000
       });
 
       window._careNexusSocket.on('connect', () => {

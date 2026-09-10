@@ -91,6 +91,14 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('crisis-alert', { crisisLevel, triggers });
   });
 
+  socket.on('typing', ({ roomId, senderRole }) => {
+    socket.to(roomId).emit('typing', { senderRole });
+  });
+
+  socket.on('stop-typing', ({ roomId, senderRole }) => {
+    socket.to(roomId).emit('stop-typing', { senderRole });
+  });
+
   socket.on('leave-room', (roomId) => {
     socket.leave(roomId);
   });

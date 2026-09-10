@@ -85,9 +85,9 @@
         </div>
 
         <!-- Input Box -->
-        <form id="carebot-form" class="p-3 bg-surface-container-lowest border-t border-outline-variant/15 flex items-center gap-2">
-          <input id="carebot-input" type="text" placeholder="Share how you feel..." class="flex-1 bg-surface-container-low border border-outline-variant/20 rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-primary resize-none">
-          <button type="submit" class="w-9 h-9 rounded-xl bg-primary text-on-primary flex items-center justify-center hover:bg-primary-dim transition-colors flex-shrink-0 shadow-sm">
+        <form id="carebot-form" class="p-3 bg-surface-container-lowest border-t border-outline-variant/15 flex items-end gap-2">
+          <textarea id="carebot-input" rows="1" placeholder="Share how you feel... (Shift+Enter for new line)" class="flex-1 bg-surface-container-low border border-outline-variant/20 rounded-xl px-3.5 py-2 text-xs text-on-surface focus:outline-none focus:border-primary resize-none max-h-24 leading-relaxed outline-none"></textarea>
+          <button type="submit" class="w-9 h-9 rounded-xl bg-primary text-on-primary flex items-center justify-center hover:bg-primary-dim transition-colors flex-shrink-0 shadow-sm mb-0.5">
             <span class="material-symbols-outlined text-lg">send</span>
           </button>
         </form>
@@ -115,13 +115,31 @@
     triggerBtn.onclick = toggleChat;
     closeBtn.onclick = toggleChat;
 
+    // Load persisted conversation from sessionStorage
+    loadHistory();
+
+    // Auto resize textarea & keydown handling
+    input.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 96) + 'px';
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        form.dispatchEvent(new Event('submit'));
+      }
+    });
+
     form.onsubmit = async (e) => {
       e.preventDefault();
       const txt = input.value.trim();
       if (!txt) return;
 
       input.value = '';
+      input.style.height = 'auto';
       appendUserMsg(txt);
+      saveHistoryItem({ type: 'user', text: txt });
 
       // Append typing indicator
       const typingId = appendTypingIndicator();
@@ -138,28 +156,69 @@
         if (res.ok) {
           const data = await res.json();
           appendBotMsg(data.reply, data.isCrisis, data.crisisInfo, data.suggestedAction);
+          saveHistoryItem({
+            type: 'bot',
+            text: data.reply,
+            isCrisis: data.isCrisis,
+            crisisInfo: data.crisisInfo,
+            action: data.suggestedAction
+          });
         } else {
-          appendBotMsg("I'm here with you. If you need immediate human peer support, you can open our Peer Mentors directory at any time.");
+          const fallback = "I'm here with you. If you need immediate human peer support, you can open our Peer Mentors directory at any time.";
+          appendBotMsg(fallback);
+          saveHistoryItem({ type: 'bot', text: fallback });
         }
       } catch (err) {
         removeTypingIndicator(typingId);
-        appendBotMsg("I'm having trouble connecting right now, but please know you are not alone. You can connect with our peer mentors using the top navigation bar!");
+        const fallbackErr = "I'm having trouble connecting right now, but please know you are not alone. You can connect with our peer mentors using the top navigation bar!";
+        appendBotMsg(fallbackErr);
+        saveHistoryItem({ type: 'bot', text: fallbackErr });
       }
     };
 
-    function appendUserMsg(text) {
+    function saveHistoryItem(item) {
+      try {
+        const history = JSON.parse(sessionStorage.getItem('carebot_history') || '[]');
+        history.push(item);
+        sessionStorage.setItem('carebot_history', JSON.stringify(history));
+      } catch (e) {}
+    }
+
+    function loadHistory() {
+      try {
+        const history = JSON.parse(sessionStorage.getItem('carebot_history') || '[]');
+        for (const item of history) {
+          if (item.type === 'user') {
+            appendUserMsg(item.text, false);
+          } else if (item.type === 'bot') {
+            appendBotMsg(item.text, item.isCrisis, item.crisisInfo, item.action, false);
+          }
+        }
+      } catch (e) {}
+    }
+
+    function formatCareBotText(raw) {
+      if (!raw) return '';
+      let safe = escapeHtml(raw);
+      safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      safe = safe.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      safe = safe.replace(/\n/g, '<br>');
+      return safe;
+    }
+
+    function appendUserMsg(text, autoScroll = true) {
       const msgDiv = document.createElement('div');
       msgDiv.className = 'flex justify-end mb-2';
       msgDiv.innerHTML = `
-        <div class="bg-primary text-on-primary p-3 rounded-2xl rounded-tr-none text-xs max-w-[85%] shadow-sm">
-          ${escapeHtml(text)}
+        <div class="bg-primary text-on-primary p-3 rounded-2xl rounded-tr-none text-xs max-w-[85%] shadow-sm leading-relaxed break-words">
+          ${formatCareBotText(text)}
         </div>
       `;
       messagesArea.appendChild(msgDiv);
-      messagesArea.scrollTop = messagesArea.scrollHeight;
+      if (autoScroll) messagesArea.scrollTop = messagesArea.scrollHeight;
     }
 
-    function appendBotMsg(text, isCrisis = false, crisisInfo = null, action = null) {
+    function appendBotMsg(text, isCrisis = false, crisisInfo = null, action = null, autoScroll = true) {
       const msgDiv = document.createElement('div');
       msgDiv.className = 'flex items-start gap-2.5 mb-2';
       
@@ -198,14 +257,14 @@
         <div class="w-7 h-7 rounded-lg bg-primary-container text-primary flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
           🤖
         </div>
-        <div class="bg-surface-container-low border border-outline-variant/15 p-3 rounded-2xl rounded-tl-none text-on-surface max-w-[85%] shadow-sm space-y-1">
-          <p>${escapeHtml(text)}</p>
+        <div class="bg-surface-container-low border border-outline-variant/15 p-3 rounded-2xl rounded-tl-none text-on-surface max-w-[85%] shadow-sm space-y-1 leading-relaxed break-words">
+          <p>${formatCareBotText(text)}</p>
           ${crisisHTML}
           ${actionHTML}
         </div>
       `;
       messagesArea.appendChild(msgDiv);
-      messagesArea.scrollTop = messagesArea.scrollHeight;
+      if (autoScroll) messagesArea.scrollTop = messagesArea.scrollHeight;
     }
 
     function appendTypingIndicator() {
@@ -217,8 +276,13 @@
         <div class="w-7 h-7 rounded-lg bg-primary-container text-primary flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
           🤖
         </div>
-        <div class="bg-surface-container-low border border-outline-variant/15 p-3 rounded-2xl rounded-tl-none text-on-surface text-xs shadow-sm flex items-center gap-1.5 text-on-surface-variant font-medium">
-          <span class="w-2 h-2 rounded-full bg-primary animate-ping"></span> CareBot is thinking...
+        <div class="bg-surface-container-low border border-outline-variant/15 px-3 py-2 rounded-2xl rounded-tl-none text-on-surface text-xs shadow-sm flex items-center gap-1.5 text-on-surface-variant font-medium">
+          <span class="inline-flex gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style="animation-delay: 0ms"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style="animation-delay: 150ms"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style="animation-delay: 300ms"></span>
+          </span>
+          <span class="ml-1 text-[11px]">CareBot is typing...</span>
         </div>
       `;
       messagesArea.appendChild(msgDiv);

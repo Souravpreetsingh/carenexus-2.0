@@ -57,6 +57,14 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('typing', ({ roomId, senderRole }) => {
+    socket.to(roomId).emit('typing', { senderRole });
+  });
+
+  socket.on('stop-typing', ({ roomId, senderRole }) => {
+    socket.to(roomId).emit('stop-typing', { senderRole });
+  });
+
   // Call Signaling (Voice & Video Call)
   socket.on('call-offer',  ({ roomId, offer, callType }) => socket.to(roomId).emit('call-offer',  { offer, callType }));
   socket.on('call-answer', ({ roomId, answer })          => socket.to(roomId).emit('call-answer', { answer }));

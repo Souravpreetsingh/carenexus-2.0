@@ -39,13 +39,23 @@ const { analyzeText } = require('../utils/nlpEngine');
 router.post('/request', auth, async (req, res) => {
   try {
     if (req.user.role !== 'user') return res.status(403).json({ message: 'Only users can request sessions' });
-    const { moodTag, userFeelingsNote } = req.body;
+    const { moodTag, userFeelingsNote, mentorId } = req.body;
 
     const existing = await Session.findOne({ user: req.user.id, status: { $in: ['pending', 'active'] } })
       .populate('recommendedMentor', 'username specialties rating bio education achievements');
     if (existing) return res.json({ session: existing });
 
-    const { bestMentor, matchScore } = await findBestMentorMatch(moodTag);
+    let bestMentor = null;
+    let matchScore = 90;
+
+    if (mentorId) {
+      bestMentor = await User.findById(mentorId);
+      matchScore = 98;
+    } else {
+      const match = await findBestMentorMatch(moodTag);
+      bestMentor = match.bestMentor;
+      matchScore = match.matchScore;
+    }
 
     // AI Analysis & Mentor Guidance Generation
     const feelingsText = userFeelingsNote || moodTag || 'General emotional support requested';
@@ -82,6 +92,23 @@ router.post('/request', auth, async (req, res) => {
       .populate('recommendedMentor', 'username specialties rating bio education achievements');
 
     res.status(201).json({ session: populatedSession });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// User or Mentor: cancel a pending/active session request
+router.post('/:id/cancel', auth, async (req, res) => {
+  try {
+    const session = await Session.findById(req.params.id);
+    if (!session) return res.status(404).json({ message: 'Session not found' });
+    if (session.user.toString() !== req.user.id && (session.mentor && session.mentor.toString() !== req.user.id)) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+    session.status = 'completed';
+    await session.save();
+    await Message.deleteMany({ roomId: session.roomId });
+    res.json({ message: 'Session request cancelled successfully.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

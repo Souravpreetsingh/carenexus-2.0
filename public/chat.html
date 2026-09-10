@@ -315,16 +315,16 @@
 
     reset(isInitial = false) {
       this.x = Math.random() * width;
-      this.y = isInitial ? Math.random() * height : -30;
-      this.size = Math.random() * 10 + 8; // 8px to 18px leaf size
-      this.speedY = Math.random() * 1.2 + 0.6; // Gentle vertical descent speed
-      this.swayAmplitude = Math.random() * 1.5 + 0.5;
-      this.swaySpeed = Math.random() * 0.02 + 0.01;
+      this.y = isInitial ? Math.random() * height : -20;
+      this.size = Math.random() * 6 + 4; // Smaller delicate leaf size: 4px to 10px
+      this.speedY = Math.random() * 0.45 + 0.25; // Slower, peaceful vertical descent
+      this.swayAmplitude = Math.random() * 1.1 + 0.4;
+      this.swaySpeed = Math.random() * 0.012 + 0.006; // Slower sway
       this.swayAngle = Math.random() * Math.PI * 2;
       this.rotation = Math.random() * Math.PI * 2;
-      this.rotationSpeed = (Math.random() - 0.5) * 0.03;
+      this.rotationSpeed = (Math.random() - 0.5) * 0.015; // Slower 3D rotation
       this.tumbleAngle = Math.random() * Math.PI * 2;
-      this.tumbleSpeed = Math.random() * 0.03 + 0.01;
+      this.tumbleSpeed = Math.random() * 0.015 + 0.005; // Gentle tumble
       this.color = leafColors[Math.floor(Math.random() * leafColors.length)];
       this.opacity = Math.random() * 0.45 + 0.25;
     }

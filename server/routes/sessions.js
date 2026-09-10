@@ -91,6 +91,9 @@ router.post('/request', auth, async (req, res) => {
     const populatedSession = await Session.findById(session._id)
       .populate('recommendedMentor', 'username specialties rating bio education achievements');
 
+    const io = req.app.get('io');
+    if (io) io.emit('new-request', { session: populatedSession });
+
     res.status(201).json({ session: populatedSession });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -107,6 +110,10 @@ router.post('/:id/cancel', auth, async (req, res) => {
     }
     session.status = 'cancelled';
     await session.save();
+
+    const io = req.app.get('io');
+    if (io) io.emit('request-cancelled', { sessionId: session._id });
+
     res.json({ message: 'Session request cancelled successfully.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -123,6 +130,10 @@ router.post('/:id/reject', auth, async (req, res) => {
       { new: true }
     );
     if (!session) return res.status(409).json({ message: 'This request is no longer available or already processed.' });
+
+    const io = req.app.get('io');
+    if (io) io.emit('request-rejected', { sessionId: session._id });
+
     res.json({ message: 'Session request rejected.', session });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -156,6 +167,10 @@ router.post('/:id/accept', auth, async (req, res) => {
     if (!session) {
       return res.status(409).json({ message: 'This request is no longer available.' });
     }
+
+    const io = req.app.get('io');
+    if (io) io.emit('request-accepted', { sessionId: session._id, roomId: session.roomId });
+
     res.json({ session });
   } catch (err) {
     res.status(500).json({ message: err.message });

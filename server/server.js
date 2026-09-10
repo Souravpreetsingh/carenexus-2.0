@@ -15,6 +15,7 @@ const adminRoutes = require('./routes/admin');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
+app.set('io', io);
 
 // Middleware
 app.use(cors());

@@ -278,7 +278,7 @@ fetch(`/api/sessions/${roomId}/messages`, {headers:{'Authorization':`Bearer ${to
     if (data.messages && data.messages.length > 0) {
       for (const m of data.messages) {
         const decrypted = await decryptMessageText(m.text, roomId);
-        appendMessage(decrypted, m.senderRole, m.createdAt);
+        appendMessage(decrypted, m.senderRole, m.createdAt, m._id);
       }
     }
   });
@@ -345,11 +345,13 @@ socket.on('stop-typing', ({ senderRole }) => {
   }
 });
 
-socket.on('receive-message', async ({text, senderRole, createdAt}) => {
+const renderedMessageIds = new Set();
+
+socket.on('receive-message', async ({ _id, text, senderRole, createdAt }) => {
   const indicator = document.getElementById('typingIndicator');
   if (indicator) indicator.classList.add('hidden');
   const decrypted = await decryptMessageText(text, roomId);
-  appendMessage(decrypted, senderRole, createdAt);
+  appendMessage(decrypted, senderRole, createdAt, _id);
 });
 
 socket.on('crisis-alert', () => {
@@ -379,7 +381,11 @@ function formatMessageText(raw) {
   return safe;
 }
 
-function appendMessage(text, senderRole, createdAt) {
+function appendMessage(text, senderRole, createdAt, msgId = null) {
+  if (msgId) {
+    if (renderedMessageIds.has(String(msgId))) return;
+    renderedMessageIds.add(String(msgId));
+  }
   const box = document.getElementById('messages');
   const isMe = senderRole === user.role;
   const time = new Date(createdAt || Date.now()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});

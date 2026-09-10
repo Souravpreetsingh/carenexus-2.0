@@ -816,13 +816,36 @@ if (!token || !user) {
     loadPending();
     if (window.loadMentorDashboardData) loadMentorDashboardData();
 
-    // Auto-poll incoming requests & active session every 4 seconds for mentor
+    // Initialize Socket.IO connection for real-time queue notifications
+    if (typeof io !== 'undefined') {
+      const dashSocket = io();
+      dashSocket.on('new-request', () => loadPending());
+      dashSocket.on('request-accepted', ({ sessionId }) => removeQueueCard(sessionId));
+      dashSocket.on('request-rejected', ({ sessionId }) => removeQueueCard(sessionId));
+      dashSocket.on('request-cancelled', ({ sessionId }) => removeQueueCard(sessionId));
+    }
+
+    // Auto-poll incoming requests & active session every 5 seconds for mentor
     setInterval(() => {
       if (document.visibilityState === 'visible') {
         loadPending();
         loadMySession();
       }
-    }, 4000);
+    }, 5000);
+  }
+}
+
+function removeQueueCard(sessionId) {
+  const card = document.getElementById(`queue-card-${sessionId}`);
+  if (card) {
+    card.style.opacity = '0';
+    card.style.transition = 'opacity 0.3s ease';
+    setTimeout(() => {
+      card.remove();
+      loadPending();
+    }, 300);
+  } else {
+    loadPending();
   }
 }
 

@@ -15,13 +15,13 @@
 
     if (typeof window !== 'undefined' && window.location) {
       const hostname = window.location.hostname;
-      // Local development environment
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      // Local development or direct Render host navigation
+      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('onrender.com')) {
         return window.location.origin;
       }
     }
 
-    // Production Node/Express Socket.IO Backend URL (Render web service)
+    // Default Fallback Render Web Service URL
     return 'https://carenexus-9olf.onrender.com';
   }
 

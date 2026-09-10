@@ -757,6 +757,29 @@
 </div>
 
 <script>
+function escHtml(t) {
+  return String(t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function showToast(msg) {
+  let toastContainer = document.getElementById('toastContainer');
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'toastContainer';
+    toastContainer.className = 'fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none';
+    document.body.appendChild(toastContainer);
+  }
+  const toast = document.createElement('div');
+  toast.className = 'bg-surface-container-lowest border border-outline-variant/20 shadow-2xl rounded-2xl px-5 py-3.5 text-xs font-bold text-on-surface flex items-center gap-2.5 animate-fadeIn pointer-events-auto';
+  toast.innerHTML = `<span class="material-symbols-outlined text-primary text-lg">info</span> <span>${escHtml(msg)}</span>`;
+  toastContainer.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
 const token = localStorage.getItem('token');
 const user = JSON.parse(localStorage.getItem('user') || 'null');
 let currentSession = null;

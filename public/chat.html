@@ -260,125 +260,124 @@
   <div class="absolute top-[30%] left-[32%] w-[450px] h-[450px] bg-gradient-to-r from-amber-200/25 via-emerald-200/30 to-teal-100/25 blur-[120px] rounded-full animate-aurora-3 opacity-70"></div>
 </div>
 
-<!-- Interactive Faded 3D WebGL Background Canvas -->
-<canvas id="bg3dCanvas" class="fixed inset-0 pointer-events-none -z-5 w-full h-full opacity-70"></canvas>
+<!-- Falling Leaves Theme Sanctuary Canvas -->
+<canvas id="fallingLeavesCanvas" class="fixed inset-0 pointer-events-none -z-5 w-full h-full opacity-90"></canvas>
 
 <!-- CareNexus Chat V2 Engine -->
 <script src="/js/config.js"></script>
 <script src="/js/chatV2.js"></script>
 
 <script>
-// ─── Faded 3D Sanctuary WebGL Background (Three.js) ─────────────────────────
-(function init3DBackground() {
-  if (typeof THREE === 'undefined') return;
-  
-  const canvas = document.getElementById('bg3dCanvas');
+// ─── Falling Leaves Sanctuary Theme Engine ──────────────────────────────────
+(function initFallingLeaves() {
+  const canvas = document.getElementById('fallingLeavesCanvas');
   if (!canvas) return;
+  const ctx = canvas.getContext('2d');
 
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.z = 15;
+  let width = canvas.width = window.innerWidth;
+  let height = canvas.height = window.innerHeight;
 
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-  // Ambient & Directional Lights
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
-  scene.add(ambientLight);
-
-  const dirLight = new THREE.DirectionalLight(0x3c6d69, 1.4);
-  dirLight.position.set(6, 12, 8);
-  scene.add(dirLight);
-
-  // Soft Glass Translucent Materials
-  const materialEmerald = new THREE.MeshPhongMaterial({
-    color: 0x3c6d69,
-    emissive: 0x225a5a,
-    specular: 0xffffff,
-    shininess: 45,
-    transparent: true,
-    opacity: 0.28
-  });
-
-  const materialGold = new THREE.MeshPhongMaterial({
-    color: 0xd97706,
-    emissive: 0x78350f,
-    specular: 0xfef3c7,
-    shininess: 35,
-    transparent: true,
-    opacity: 0.22
-  });
-
-  const materialTeal = new THREE.MeshPhongMaterial({
-    color: 0x2f605d,
-    emissive: 0x113e3b,
-    specular: 0xffffff,
-    shininess: 50,
-    transparent: true,
-    opacity: 0.25
-  });
-
-  // 3D Geometry 1: Floating Translucent Crystal (Icosahedron)
-  const geo1 = new THREE.IcosahedronGeometry(2.4, 1);
-  const mesh1 = new THREE.Mesh(geo1, materialEmerald);
-  mesh1.position.set(-7.5, 4.2, -2);
-  scene.add(mesh1);
-
-  // 3D Geometry 2: Floating Torus Ring (TorusKnot)
-  const geo2 = new THREE.TorusKnotGeometry(1.6, 0.45, 64, 8);
-  const mesh2 = new THREE.Mesh(geo2, materialTeal);
-  mesh2.position.set(7.5, -4.2, -3);
-  scene.add(mesh2);
-
-  // 3D Geometry 3: Golden Sanctuary Gem (Octahedron)
-  const geo3 = new THREE.OctahedronGeometry(2, 0);
-  const mesh3 = new THREE.Mesh(geo3, materialGold);
-  mesh3.position.set(0.5, -1.5, -5);
-  scene.add(mesh3);
-
-  // Mouse Parallax Effect
-  let mouseX = 0, mouseY = 0;
-  window.addEventListener('mousemove', (e) => {
-    mouseX = (e.clientX - window.innerWidth / 2) * 0.0018;
-    mouseY = (e.clientY - window.innerHeight / 2) * 0.0018;
-  });
-
-  // Resize Handler
   window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
   });
 
-  // Animation Loop
-  let clock = new THREE.Clock();
-  function animate() {
-    requestAnimationFrame(animate);
-    const elapsedTime = clock.getElapsedTime();
+  const leafColors = [
+    'rgba(60, 109, 105, 0.45)',  // Sanctuary Emerald
+    'rgba(47, 96, 93, 0.50)',   // Deep Forest Sage
+    'rgba(181, 237, 236, 0.55)', // Soft Mint Cyan
+    'rgba(217, 119, 6, 0.35)',   // Warm Autumn Gold
+    'rgba(110, 172, 160, 0.40)'  // Pastel Leaf Green
+  ];
 
-    // 3D Continuous Floating & Rotations
-    mesh1.rotation.x = elapsedTime * 0.12;
-    mesh1.rotation.y = elapsedTime * 0.18;
-    mesh1.position.y = 4.2 + Math.sin(elapsedTime * 0.8) * 0.45;
+  // Render Organic Leaf Path
+  function drawLeaf(ctx, size, color) {
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.moveTo(0, -size);
+    ctx.bezierCurveTo(size * 0.75, -size * 0.5, size * 0.85, size * 0.5, 0, size);
+    ctx.bezierCurveTo(-size * 0.85, size * 0.5, -size * 0.75, -size * 0.5, 0, -size);
+    ctx.fill();
 
-    mesh2.rotation.x = elapsedTime * 0.18;
-    mesh2.rotation.y = elapsedTime * 0.1;
-    mesh2.position.y = -4.2 + Math.cos(elapsedTime * 0.7) * 0.5;
-
-    mesh3.rotation.y = elapsedTime * 0.22;
-    mesh3.rotation.z = elapsedTime * 0.14;
-    mesh3.position.y = -1.5 + Math.sin(elapsedTime * 1.1) * 0.35;
-
-    // Smooth Mouse Parallax Camera Drift
-    camera.position.x += (mouseX - camera.position.x) * 0.04;
-    camera.position.y += (-mouseY - camera.position.y) * 0.04;
-    camera.lookAt(scene.position);
-
-    renderer.render(scene, camera);
+    // Leaf Center Vein Highlight
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.moveTo(0, -size * 0.8);
+    ctx.lineTo(0, size * 0.8);
+    ctx.stroke();
   }
 
-  animate();
+  class Leaf {
+    constructor(isInitial = false) {
+      this.reset(isInitial);
+    }
+
+    reset(isInitial = false) {
+      this.x = Math.random() * width;
+      this.y = isInitial ? Math.random() * height : -30;
+      this.size = Math.random() * 10 + 8; // 8px to 18px leaf size
+      this.speedY = Math.random() * 1.2 + 0.6; // Gentle vertical descent speed
+      this.swayAmplitude = Math.random() * 1.5 + 0.5;
+      this.swaySpeed = Math.random() * 0.02 + 0.01;
+      this.swayAngle = Math.random() * Math.PI * 2;
+      this.rotation = Math.random() * Math.PI * 2;
+      this.rotationSpeed = (Math.random() - 0.5) * 0.03;
+      this.tumbleAngle = Math.random() * Math.PI * 2;
+      this.tumbleSpeed = Math.random() * 0.03 + 0.01;
+      this.color = leafColors[Math.floor(Math.random() * leafColors.length)];
+      this.opacity = Math.random() * 0.45 + 0.25;
+    }
+
+    update(windX) {
+      this.swayAngle += this.swaySpeed;
+      this.tumbleAngle += this.tumbleSpeed;
+      this.rotation += this.rotationSpeed;
+
+      this.x += Math.sin(this.swayAngle) * this.swayAmplitude + windX;
+      this.y += this.speedY;
+
+      if (this.y > height + 40 || this.x < -40 || this.x > width + 40) {
+        this.reset(false);
+      }
+    }
+
+    draw(ctx) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(this.rotation);
+      ctx.scale(Math.cos(this.tumbleAngle), 1);
+      ctx.globalAlpha = this.opacity;
+      drawLeaf(ctx, this.size, this.color);
+      ctx.restore();
+    }
+  }
+
+  // Generate responsive leaf count
+  const leafCount = Math.min(Math.floor(width / 25), 45);
+  const leaves = Array.from({ length: leafCount }, () => new Leaf(true));
+
+  // Interactive Wind Drift on Mouse Move
+  let targetWindX = 0;
+  let currentWindX = 0;
+  window.addEventListener('mousemove', (e) => {
+    targetWindX = (e.clientX - width / 2) * 0.0008;
+  });
+
+  function render() {
+    ctx.clearRect(0, 0, width, height);
+
+    currentWindX += (targetWindX - currentWindX) * 0.05;
+
+    leaves.forEach(leaf => {
+      leaf.update(currentWindX);
+      leaf.draw(ctx);
+    });
+
+    requestAnimationFrame(render);
+  }
+
+  render();
 })();
 </script>
 

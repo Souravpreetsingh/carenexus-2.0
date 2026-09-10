@@ -1,7 +1,7 @@
 /**
  * CareNexus Chat V2 Engine
  * State-driven message architecture with AES-256-GCM encryption, client message idempotency,
- * singleton Socket.IO connection manager, and namespaced real-time delivery protocol.
+ * singleton Socket.IO connection manager, and production backend Socket URL routing.
  */
 
 (function () {
@@ -24,7 +24,25 @@
   let roomCryptoKey = null;
   let typingTimer = null;
 
-  // 3. Singleton Socket.IO Connection Manager
+  // 3. Socket URL Resolver (Local Dev vs Production Node/Socket.IO Backend)
+  function getSocketBaseUrl() {
+    if (typeof window !== 'undefined' && window.CARENEXUS_SOCKET_URL) {
+      return window.CARENEXUS_SOCKET_URL;
+    }
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('care_socket_url')) {
+      return localStorage.getItem('care_socket_url');
+    }
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return window.location.origin;
+      }
+    }
+    // Render persistent Node/Express Socket.IO Backend
+    return 'https://carenexus.onrender.com';
+  }
+
+  // 4. Singleton Socket.IO Connection Manager
   function getCareNexusSocket() {
     if (window._careNexusSocket && window._careNexusSocket.connected) {
       return window._careNexusSocket;
@@ -34,21 +52,33 @@
         console.error('[CHAT-V2] Socket.IO client library (io) is missing!');
         return null;
       }
-      window._careNexusSocket = io({
+      const socketUrl = (typeof window.getSocketBaseUrl === 'function') ? window.getSocketBaseUrl() : getSocketBaseUrl();
+      console.log(`[CHAT-V2] Socket URL: ${socketUrl}`);
+      console.log(`[CHAT-V2] connecting...`);
+
+      window._careNexusSocket = io(socketUrl, {
         auth: { token: token },
-        transports: ['websocket', 'polling']
+        transports: ['websocket', 'polling'],
+        withCredentials: true
       });
 
       window._careNexusSocket.on('connect', () => {
-        console.log(`[CHAT-V2] socket connected: ${window._careNexusSocket.id}`);
+        const transportName = window._careNexusSocket.io?.engine?.transport?.name || 'unknown';
+        console.log(`[CHAT-V2] connected socket=${window._careNexusSocket.id}`);
+        console.log(`[CHAT-V2] transport=${transportName}`);
         console.log(`[CHAT-V2] joining room: ${roomId} session: ${sessionId}`);
+
         window._careNexusSocket.emit('chat:join', { sessionId, roomId, token }, (ack) => {
           if (ack && ack.success) {
-            console.log(`[CHAT-V2] joined room: ${roomId} members: ${ack.membersCount}`);
+            console.log(`[CHAT-V2] joined room: ${roomId} members=${ack.membersCount}`);
           } else {
             console.warn(`[CHAT-V2] join failed:`, ack ? ack.error : 'No ACK');
           }
         });
+      });
+
+      window._careNexusSocket.on('connect_error', (err) => {
+        console.warn(`[CHAT-V2] connection error to ${socketUrl}:`, err.message);
       });
 
       window._careNexusSocket.on('reconnect', () => {
@@ -62,13 +92,13 @@
   window.getCareNexusSocket = getCareNexusSocket;
   const socket = getCareNexusSocket();
 
-  // 4. Header & UI Initialization
+  // 5. Header & UI Initialization
   const chatTitle = document.getElementById('chatTitle');
   if (chatTitle) {
     chatTitle.textContent = user.role === 'mentor' ? 'Chatting with User' : 'Chatting with Mentor';
   }
 
-  // 5. AES-256-GCM Encryption Helpers
+  // 6. AES-256-GCM Encryption Helpers
   async function getRoomKey(roomIdentifier) {
     if (roomCryptoKey) return roomCryptoKey;
     const enc = new TextEncoder();
@@ -129,7 +159,7 @@
     }
   }
 
-  // 6. HTML Sanitization & Formatting
+  // 7. HTML Sanitization & Formatting
   function escHtml(t) {
     if (!t) return '';
     return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -146,7 +176,7 @@
     return safe;
   }
 
-  // 7. State Rendering Engine
+  // 8. State Rendering Engine
   function renderFromState() {
     const box = document.getElementById('messages');
     if (!box) return;
@@ -205,7 +235,7 @@
     }
   }
 
-  // 8. Message Ingestion / State Mutation Helper
+  // 9. Message Ingestion / State Mutation Helper
   async function ingestMessage(rawMsg) {
     if (!rawMsg) return;
     const key = rawMsg.clientMessageId || rawMsg._id || `msg_${Date.now()}`;
@@ -237,7 +267,7 @@
     renderFromState();
   }
 
-  // 9. Fetch History from Server
+  // 10. Fetch History from Server
   async function loadHistory() {
     try {
       const res = await fetch(`/api/sessions/${roomId}/messages`, {
@@ -254,7 +284,7 @@
     }
   }
 
-  // 10. Load Session Details for Mentor Briefing
+  // 11. Load Session Details for Mentor Briefing
   async function loadMentorBriefing() {
     if (user.role !== 'mentor') return;
     try {
@@ -283,7 +313,7 @@
     }
   }
 
-  // 11. Distress Keyword Check
+  // 12. Distress Keyword Check
   const CRISIS_TERMS = ['suicide', 'kill myself', 'end my life', 'want to die', 'hurt myself', 'self harm', 'end it all', 'give up'];
   function checkDistress(text) {
     if (!text) return false;
@@ -291,7 +321,7 @@
     return CRISIS_TERMS.some(term => lower.includes(term));
   }
 
-  // 12. Send Message Action
+  // 13. Send Message Action
   async function sendMessage() {
     const input = document.getElementById('msgInput');
     if (!input) return;
@@ -357,7 +387,7 @@
     }
   }
 
-  // 13. Socket Event Listeners
+  // 14. Socket Event Listeners
   if (socket) {
     socket.on('chat:message', async (msgPayload) => {
       console.log(`[CHAT-V2] message received: ${msgPayload._id || msgPayload.clientMessageId}`);
@@ -398,7 +428,7 @@
     });
   }
 
-  // 14. UI Event Attachments (Input height, Keydown, Scroll tracking)
+  // 15. UI Event Attachments (Input height, Keydown, Scroll tracking)
   const messagesBox = document.getElementById('messages');
   if (messagesBox) {
     messagesBox.addEventListener('scroll', () => {
@@ -430,7 +460,7 @@
     });
   }
 
-  // 15. Session Termination Action
+  // 16. Session Termination Action
   async function endSession() {
     if (!confirm('End this session?')) return;
     if (typeof window.hangUp === 'function') window.hangUp();

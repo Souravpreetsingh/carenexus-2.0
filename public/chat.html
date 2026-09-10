@@ -26,12 +26,33 @@
   body{min-height:100dvh;background:#fdffda;}
   .hide-scrollbar::-webkit-scrollbar{display:none;}
   .hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
+
+  @keyframes aurora-1 {
+    0%, 100% { transform: translate(0px, 0px) scale(1); }
+    50% { transform: translate(50px, -35px) scale(1.12); }
+  }
+  @keyframes aurora-2 {
+    0%, 100% { transform: translate(0px, 0px) scale(1); }
+    50% { transform: translate(-40px, 45px) scale(1.18); }
+  }
+  @keyframes aurora-3 {
+    0%, 100% { transform: translate(0px, 0px) scale(1); }
+    50% { transform: translate(35px, 50px) scale(0.92); }
+  }
+  .animate-aurora-1 { animation: aurora-1 16s ease-in-out infinite; }
+  .animate-aurora-2 { animation: aurora-2 20s ease-in-out infinite; }
+  .animate-aurora-3 { animation: aurora-3 18s ease-in-out infinite; }
+
+  .bg-grid-dots {
+    background-image: radial-gradient(rgba(60, 109, 105, 0.15) 1.2px, transparent 1.2px);
+    background-size: 26px 26px;
+  }
 </style>
 </head>
-<body class="font-body text-on-surface flex flex-col h-screen h-[100dvh] overflow-hidden">
+<body class="font-body text-on-surface flex flex-col h-screen h-[100dvh] overflow-hidden relative">
 
 <!-- Header -->
-<header class="w-full bg-[#fdffda] flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0">
+<header class="w-full bg-[#fdffda]/85 backdrop-blur-xl border-b border-primary/10 flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0 z-20">
   <div class="flex items-center gap-3">
     <div class="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center">
       <span class="material-symbols-outlined text-primary">spa</span>
@@ -227,8 +248,16 @@
   </div>
 </div>
 
-<div class="fixed top-[20%] -left-[10%] w-[40%] h-[40%] bg-primary-container/10 blur-[120px] rounded-full -z-10"></div>
-<div class="fixed bottom-[10%] -right-[10%] w-[30%] h-[30%] bg-secondary-container/20 blur-[100px] rounded-full -z-10"></div>
+<!-- Ambient Dynamic Sanctuary Background -->
+<div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+  <!-- Micro Dot Grid Texture -->
+  <div class="absolute inset-0 bg-grid-dots opacity-40"></div>
+  
+  <!-- Animated Aurora Glowing Fluid Spheres -->
+  <div class="absolute -top-32 -left-32 w-[550px] h-[550px] bg-gradient-to-tr from-[#3c6d69]/30 via-[#b9ece7]/35 to-transparent blur-[130px] rounded-full animate-aurora-1 opacity-80"></div>
+  <div class="absolute -bottom-32 -right-32 w-[600px] h-[600px] bg-gradient-to-bl from-[#b5edec]/35 via-[#3c6d69]/20 to-transparent blur-[140px] rounded-full animate-aurora-2 opacity-80"></div>
+  <div class="absolute top-[30%] left-[32%] w-[450px] h-[450px] bg-gradient-to-r from-amber-200/25 via-emerald-200/30 to-teal-100/25 blur-[120px] rounded-full animate-aurora-3 opacity-70"></div>
+</div>
 
 <!-- CareNexus Chat V2 Engine -->
 <script src="/js/config.js"></script>

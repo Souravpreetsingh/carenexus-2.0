@@ -1,5 +1,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
-try { require('dns').setServers(['8.8.8.8', '8.8.4.4']); } catch (_) {}
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
+  try { require('dns').setServers(['8.8.8.8', '8.8.4.4']); } catch (_) {}
+}
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -42,12 +44,15 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
+let lastDbError = null;
 let dbPromise = null;
+
 function ensureDbConnected() {
   if (mongoose.connection.readyState === 1) return Promise.resolve();
   if (!dbPromise) {
     dbPromise = connectDatabase().catch(err => {
       console.error('Database connection failed:', err.message);
+      lastDbError = err.message;
       dbPromise = null;
     });
   }
@@ -59,7 +64,8 @@ app.use('/api', async (req, res, next) => {
   await ensureDbConnected();
   if (mongoose.connection.readyState !== 1) {
     return res.status(503).json({
-      message: 'Database is not connected. Please ensure MongoDB is running or configure MONGO_URI in .env.'
+      message: 'Database is not connected. Please ensure MongoDB is running or configure MONGO_URI in .env.',
+      errorDetails: lastDbError || 'Connection state: ' + mongoose.connection.readyState
     });
   }
   next();
@@ -98,19 +104,27 @@ server.listen(PORT, '0.0.0.0', () => {
 async function connectDatabase() {
   const customUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/carenexus';
   try {
-    try { require('dns').setServers(['8.8.8.8', '8.8.4.4']); } catch (_) {}
-    await mongoose.connect(customUri, { serverSelectionTimeoutMS: 4000 });
+    // Only set custom DNS servers in non-cloud/local environments if needed
+    if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
+      try { require('dns').setServers(['8.8.8.8', '8.8.4.4']); } catch (_) {}
+    }
+    await mongoose.connect(customUri, { serverSelectionTimeoutMS: 10000 });
     console.log('MongoDB connected successfully via MONGO_URI');
+    lastDbError = null;
   } catch (err) {
     console.warn('MongoDB Atlas connection attempt failed:', err.message);
-    try {
-      const { MongoMemoryServer } = require('mongodb-memory-server');
-      const mongoServer = await MongoMemoryServer.create({ binary: { version: '4.4.18' } });
-      const uri = mongoServer.getUri();
-      await mongoose.connect(uri);
-      console.log(`In-memory MongoDB connected successfully at ${uri}`);
-    } catch (e) {
-      console.warn('Database connection fallback notice:', e.message);
+    lastDbError = err.message;
+    if (!process.env.VERCEL) {
+      try {
+        const { MongoMemoryServer } = require('mongodb-memory-server');
+        const mongoServer = await MongoMemoryServer.create({ binary: { version: '4.4.18' } });
+        const uri = mongoServer.getUri();
+        await mongoose.connect(uri);
+        console.log(`In-memory MongoDB connected successfully at ${uri}`);
+        lastDbError = null;
+      } catch (e) {
+        console.warn('Database connection fallback notice:', e.message);
+      }
     }
   }
   await seedDefaultMentors();

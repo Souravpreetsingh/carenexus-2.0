@@ -547,7 +547,79 @@ function toggleCamera() {
   localStream.getVideoTracks().forEach(t => t.enabled = !isCameraOff);
   const btn = document.getElementById('cameraBtn').querySelector('span');
   btn.textContent = isCameraOff ? 'videocam_off' : 'videocam';
-}
+// ─── Tranquil Falling Leaves Background Animation Engine ────────────────────────
+(function initFallingLeaves() {
+  const canvas = document.createElement('canvas');
+  canvas.id = 'fallingLeavesCanvas';
+  canvas.className = 'fixed inset-0 pointer-events-none z-0 opacity-40';
+  document.body.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d');
+  let width = (canvas.width = window.innerWidth);
+  let height = (canvas.height = window.innerHeight);
+
+  window.addEventListener('resize', () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  });
+
+  const leafColors = ['#3c6d69', '#5a9e97', '#80b8b2', '#a7d7d2', '#6b9080', '#2a524e'];
+  const leafCount = 30;
+  const leaves = [];
+
+  for (let i = 0; i < leafCount; i++) {
+    leaves.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      size: Math.random() * 3.5 + 4.5, // Small size (4.5px - 8px)
+      speedY: Math.random() * 0.35 + 0.25, // Gentle slow downward speed
+      speedX: Math.random() * 0.2 - 0.1,
+      swayAmp: Math.random() * 1.5 + 0.5,
+      swayFreq: Math.random() * 0.015 + 0.008,
+      angle: Math.random() * Math.PI * 2,
+      rotationSpeed: (Math.random() - 0.5) * 0.015,
+      color: leafColors[Math.floor(Math.random() * leafColors.length)],
+      opacity: Math.random() * 0.45 + 0.25
+    });
+  }
+
+  function drawLeaf(ctx, l) {
+    ctx.save();
+    ctx.translate(l.x, l.y);
+    ctx.rotate(l.angle);
+    ctx.globalAlpha = l.opacity;
+    ctx.fillStyle = l.color;
+
+    ctx.beginPath();
+    ctx.moveTo(0, -l.size);
+    ctx.bezierCurveTo(l.size / 2, -l.size / 2, l.size / 2, l.size / 2, 0, l.size);
+    ctx.bezierCurveTo(-l.size / 2, l.size / 2, -l.size / 2, -l.size / 2, 0, -l.size);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, width, height);
+    for (let i = 0; i < leaves.length; i++) {
+      const l = leaves[i];
+      l.y += l.speedY;
+      l.x += Math.sin(l.y * l.swayFreq) * l.swayAmp * 0.25 + l.speedX;
+      l.angle += l.rotationSpeed;
+
+      if (l.y > height + 20) {
+        l.y = -20;
+        l.x = Math.random() * width;
+      }
+      if (l.x > width + 20) l.x = -20;
+      if (l.x < -20) l.x = width + 20;
+
+      drawLeaf(ctx, l);
+    }
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+})();
 </script>
 </body>
 </html>

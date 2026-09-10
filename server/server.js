@@ -71,17 +71,20 @@ io.on('connection', (socket) => {
   });
 
   socket.on('send-message', async ({ roomId, senderId, senderRole, text }) => {
+    let msg = null;
     try {
-      const msg = await Message.create({ roomId, sender: senderId, senderRole, text });
-      io.to(roomId).emit('receive-message', {
-        _id: msg._id,
-        text: msg.text,
-        senderRole: msg.senderRole,
-        createdAt: msg.createdAt
-      });
+      const validSender = (senderId && mongoose.Types.ObjectId.isValid(senderId)) ? senderId : null;
+      msg = await Message.create({ roomId, sender: validSender, senderRole, text });
     } catch (err) {
-      console.error('Message save error:', err.message);
+      console.error('Message save notice:', err.message);
     }
+
+    io.to(roomId).emit('receive-message', {
+      _id: msg ? msg._id : Date.now().toString(),
+      text,
+      senderRole,
+      createdAt: msg ? msg.createdAt : new Date()
+    });
   });
 
   socket.on('trigger-crisis', ({ roomId, crisisLevel, triggers }) => {

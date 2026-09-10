@@ -39,14 +39,15 @@ io.on('connection', (socket) => {
 
   socket.on('send-message', async ({ roomId, senderId, senderRole, text }) => {
     try {
+      const validSender = (senderId && mongoose.Types.ObjectId.isValid(senderId)) ? senderId : null;
       if (mongoose.connection.readyState === 1) {
-        await Message.create({ roomId, sender: senderId, senderRole, text });
+        await Message.create({ roomId, sender: validSender, senderRole, text });
       } else {
         if (!memoryMessages[roomId]) memoryMessages[roomId] = [];
         memoryMessages[roomId].push({ roomId, senderRole, text, createdAt: new Date() });
       }
     } catch (e) {
-      console.error('Error saving chat message:', e);
+      console.error('Error saving chat message notice:', e.message);
     }
 
     io.to(roomId).emit('receive-message', {

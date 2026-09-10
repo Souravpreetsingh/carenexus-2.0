@@ -343,7 +343,8 @@ async function sendMessage() {
     socket.emit('trigger-crisis', { roomId, crisisLevel: 'critical', triggers: ['distress_keywords'] });
   }
   const encryptedText = await encryptMessageText(text, roomId);
-  socket.emit('send-message', {roomId, senderId: user.id, senderRole: user.role, text: encryptedText});
+  const userId = user ? (user.id || user._id) : null;
+  socket.emit('send-message', {roomId, senderId: userId, senderRole: user ? user.role : 'user', text: encryptedText});
   input.value = '';
 }
 

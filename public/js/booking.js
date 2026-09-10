@@ -1,6 +1,10 @@
 let currentBookingMentorId = null;
 let currentBookingMentorName = '';
 
+function getAuthToken() {
+  return localStorage.getItem('token') || localStorage.getItem('care_token') || '';
+}
+
 const TIME_SLOTS = [
   "09:00 AM", "10:30 AM", "01:00 PM", "02:30 PM", "04:00 PM", "06:00 PM", "08:00 PM"
 ];
@@ -40,7 +44,7 @@ async function fetchAvailableSlots() {
   slotContainer.innerHTML = `<div class="text-xs text-on-surface-variant animate-pulse py-2">Loading available slots...</div>`;
 
   try {
-    const token = localStorage.getItem('care_token');
+    const token = getAuthToken();
     const res = await fetch(`/api/bookings/mentor-slots/${currentBookingMentorId}?date=${dateVal}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -96,7 +100,7 @@ async function submitBooking(event) {
   }
 
   try {
-    const token = localStorage.getItem('care_token');
+    const token = getAuthToken();
     const res = await fetch('/api/bookings', {
       method: 'POST',
       headers: {
@@ -136,7 +140,7 @@ async function loadMyBookings() {
   if (!container) return;
 
   try {
-    const token = localStorage.getItem('care_token');
+    const token = getAuthToken();
     if (!token) return;
 
     const res = await fetch('/api/bookings/my-bookings', {
@@ -209,7 +213,7 @@ async function loadMyBookings() {
 async function cancelBooking(id) {
   if (!confirm('Are you sure you want to cancel this scheduled session?')) return;
   try {
-    const token = localStorage.getItem('care_token');
+    const token = getAuthToken();
     const res = await fetch(`/api/bookings/${id}/status`, {
       method: 'PATCH',
       headers: {

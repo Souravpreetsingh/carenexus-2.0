@@ -57,6 +57,11 @@ io.on('connection', (socket) => {
   });
 
   // Call Signaling (Voice & Video Call)
+  socket.on('call-offer',  ({ roomId, offer, callType }) => socket.to(roomId).emit('call-offer',  { offer, callType }));
+  socket.on('call-answer', ({ roomId, answer })          => socket.to(roomId).emit('call-answer', { answer }));
+  socket.on('call-ice',    ({ roomId, candidate })       => socket.to(roomId).emit('call-ice',    { candidate }));
+  socket.on('call-ended',  ({ roomId })                  => socket.to(roomId).emit('call-ended',  { roomId }));
+
   socket.on('call-user', ({ userToCall, signalData, from, name, callType }) => {
     io.to(userToCall).emit('call-user', { signal: signalData, from, name, callType });
   });
@@ -66,7 +71,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('reject-call', (data) => {
-    io.to(data.to).emit('call-rejected');
+    io.to(data.to).emit('call-ended');
   });
 
   socket.on('end-call', (data) => {

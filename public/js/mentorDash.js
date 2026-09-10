@@ -6,9 +6,13 @@ let mentorData = {
   totalSessionsConducted: 0
 };
 
+function getAuthToken() {
+  return localStorage.getItem('token') || localStorage.getItem('care_token') || '';
+}
+
 async function loadMentorDashboardData() {
   try {
-    const token = localStorage.getItem('care_token');
+    const token = getAuthToken();
     if (!token) return;
 
     const res = await fetch('/api/auth/me', {
@@ -55,7 +59,7 @@ function renderMentorStats() {
 async function toggleMentorAvailability() {
   try {
     const newStatus = !(mentorData.isAvailable !== false);
-    const token = localStorage.getItem('care_token');
+    const token = getAuthToken();
 
     const res = await fetch('/api/auth/profile', {
       method: 'PATCH',
@@ -94,7 +98,7 @@ async function saveMentorProfile(e) {
   const specsArray = specsVal.split(',').map(s => s.trim()).filter(Boolean);
 
   try {
-    const token = localStorage.getItem('care_token');
+    const token = getAuthToken();
     const res = await fetch('/api/auth/profile', {
       method: 'PATCH',
       headers: {
@@ -121,7 +125,7 @@ async function loadMentorBookings() {
   if (!container) return;
 
   try {
-    const token = localStorage.getItem('care_token');
+    const token = getAuthToken();
     const res = await fetch('/api/bookings/my-bookings', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -195,7 +199,7 @@ async function loadMentorBookings() {
 
 async function updateMentorBookingStatus(id, newStatus) {
   try {
-    const token = localStorage.getItem('care_token');
+    const token = getAuthToken();
     const res = await fetch(`/api/bookings/${id}/status`, {
       method: 'PATCH',
       headers: {

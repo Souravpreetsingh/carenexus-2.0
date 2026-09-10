@@ -12,11 +12,16 @@ const authRoutes = require('./routes/auth');
 const sessionRoutes = require('./routes/sessions');
 const adminRoutes = require('./routes/admin');
 
+const allowedCorsOrigin = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  return callback(null, origin);
+};
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: allowedCorsOrigin,
     credentials: true,
     methods: ['GET', 'POST']
   },
@@ -28,7 +33,12 @@ const io = new Server(server, {
 app.set('io', io);
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: allowedCorsOrigin,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 

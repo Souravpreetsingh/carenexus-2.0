@@ -9,12 +9,17 @@ const mongoose = require('mongoose');
 
 const Message = require('./models/Message');
 
+const allowedCorsOrigin = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  return callback(null, origin);
+};
+
 const PORT = process.env.CHAT_PORT || 3001;
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: allowedCorsOrigin,
     credentials: true,
     methods: ['GET', 'POST']
   },
@@ -23,6 +28,13 @@ const io = new Server(server, {
   pingTimeout: 60000,
   pingInterval: 25000
 });
+
+app.use(cors({
+  origin: allowedCorsOrigin,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Connect to MongoDB Atlas / MONGO_URI for chat persistence
 const customUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/carenexus';

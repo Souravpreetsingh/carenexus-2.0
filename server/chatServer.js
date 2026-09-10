@@ -1,4 +1,5 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+try { require('dns').setServers(['8.8.8.8', '8.8.4.4']); } catch (_) {}
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -12,6 +13,13 @@ const PORT = process.env.CHAT_PORT || 3001;
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
+
+// Connect to MongoDB Atlas / MONGO_URI for chat persistence
+const customUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/carenexus';
+try { require('dns').setServers(['8.8.8.8', '8.8.4.4']); } catch (_) {}
+mongoose.connect(customUri, { serverSelectionTimeoutMS: 5000 })
+  .then(() => console.log('Chat Server connected to MongoDB successfully'))
+  .catch(err => console.warn('Chat Server MongoDB connection notice:', err.message));
 
 app.use(cors());
 app.use(express.json());

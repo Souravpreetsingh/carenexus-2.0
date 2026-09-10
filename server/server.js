@@ -1,4 +1,5 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+try { require('dns').setServers(['8.8.8.8', '8.8.4.4']); } catch (_) {}
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -95,7 +96,8 @@ server.listen(PORT, '0.0.0.0', () => {
 async function connectDatabase() {
   const customUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/carenexus';
   try {
-    await mongoose.connect(customUri, { serverSelectionTimeoutMS: 3000 });
+    try { require('dns').setServers(['8.8.8.8', '8.8.4.4']); } catch (_) {}
+    await mongoose.connect(customUri, { serverSelectionTimeoutMS: 5000 });
     console.log('MongoDB connected successfully via MONGO_URI');
   } catch (err) {
     try {

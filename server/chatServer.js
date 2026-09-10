@@ -32,22 +32,27 @@ const memoryMessages = {};
 io.on('connection', (socket) => {
   console.log('Chat Client connected to Chat Server on port', PORT, 'socket id:', socket.id);
 
-  socket.on('join-room', (roomId) => {
-    socket.join(roomId);
-    console.log(`Socket ${socket.id} joined chat room: ${roomId}`);
+  // Chat V2 Namespaced Handlers
+  socket.on('chat:join', ({ roomId }) => {
+    if (roomId) socket.join(roomId);
   });
 
-  socket.on('send-message', async ({ roomId, senderId, senderRole, text }, ack) => {
+  socket.on('chat:send', async ({ roomId, sessionId, clientMessageId, senderId, senderRole, text }, ack) => {
     let msg = null;
     try {
-      const validSender = (senderId && mongoose.Types.ObjectId.isValid(senderId)) ? senderId : null;
-      if (mongoose.connection.readyState === 1) {
-        msg = await Message.create({ roomId, sender: validSender, senderRole, text });
-      } else {
-        if (!memoryMessages[roomId]) memoryMessages[roomId] = [];
-        const memObj = { _id: Date.now().toString(), roomId, senderRole, text, createdAt: new Date() };
-        memoryMessages[roomId].push(memObj);
-        msg = memObj;
+      if (clientMessageId && mongoose.connection.readyState === 1) {
+        msg = await Message.findOne({ clientMessageId });
+      }
+      if (!msg) {
+        const validSender = (senderId && mongoose.Types.ObjectId.isValid(senderId)) ? senderId : null;
+        if (mongoose.connection.readyState === 1) {
+          msg = await Message.create({ roomId, sessionId, clientMessageId, sender: validSender, senderRole, text });
+        } else {
+          if (!memoryMessages[roomId]) memoryMessages[roomId] = [];
+          const memObj = { _id: Date.now().toString(), roomId, sessionId, clientMessageId, senderRole, text, createdAt: new Date() };
+          memoryMessages[roomId].push(memObj);
+          msg = memObj;
+        }
       }
     } catch (e) {
       console.error('Error saving chat message notice:', e.message);
@@ -55,11 +60,74 @@ io.on('connection', (socket) => {
 
     const payload = {
       _id: msg ? (msg._id ? msg._id.toString() : Date.now().toString()) : Date.now().toString(),
-      text,
+      clientMessageId: clientMessageId || (msg ? msg.clientMessageId : null),
+      roomId,
+      sessionId: sessionId || (msg ? msg.sessionId : null),
+      text: msg ? msg.text : text,
+      senderRole,
+      senderId: msg ? msg.sender : senderId,
+      createdAt: msg ? msg.createdAt : new Date()
+    };
+
+    io.to(roomId).emit('chat:message', payload);
+    io.to(roomId).emit('receive-message', payload);
+
+    if (typeof ack === 'function') {
+      ack({ success: true, message: payload });
+    }
+  });
+
+  socket.on('chat:typing:start', ({ roomId, senderRole }) => {
+    socket.to(roomId).emit('chat:typing:start', { senderRole });
+    socket.to(roomId).emit('typing', { senderRole });
+  });
+
+  socket.on('chat:typing:stop', ({ roomId, senderRole }) => {
+    socket.to(roomId).emit('chat:typing:stop', { senderRole });
+    socket.to(roomId).emit('stop-typing', { senderRole });
+  });
+
+  socket.on('chat:leave', (roomId) => {
+    if (roomId) socket.leave(roomId);
+  });
+
+  // Legacy Socket.IO Event Handlers
+  socket.on('join-room', (roomId) => {
+    if (roomId) socket.join(roomId);
+  });
+
+  socket.on('send-message', async ({ roomId, sessionId, clientMessageId, senderId, senderRole, text }, ack) => {
+    let msg = null;
+    try {
+      if (clientMessageId && mongoose.connection.readyState === 1) {
+        msg = await Message.findOne({ clientMessageId });
+      }
+      if (!msg) {
+        const validSender = (senderId && mongoose.Types.ObjectId.isValid(senderId)) ? senderId : null;
+        if (mongoose.connection.readyState === 1) {
+          msg = await Message.create({ roomId, sessionId, clientMessageId, sender: validSender, senderRole, text });
+        } else {
+          if (!memoryMessages[roomId]) memoryMessages[roomId] = [];
+          const memObj = { _id: Date.now().toString(), roomId, sessionId, clientMessageId, senderRole, text, createdAt: new Date() };
+          memoryMessages[roomId].push(memObj);
+          msg = memObj;
+        }
+      }
+    } catch (e) {
+      console.error('Error saving chat message notice:', e.message);
+    }
+
+    const payload = {
+      _id: msg ? (msg._id ? msg._id.toString() : Date.now().toString()) : Date.now().toString(),
+      clientMessageId: clientMessageId || (msg ? msg.clientMessageId : null),
+      roomId,
+      sessionId: sessionId || (msg ? msg.sessionId : null),
+      text: msg ? msg.text : text,
       senderRole,
       createdAt: msg ? msg.createdAt : new Date()
     };
 
+    io.to(roomId).emit('chat:message', payload);
     io.to(roomId).emit('receive-message', payload);
 
     if (typeof ack === 'function') {
@@ -68,10 +136,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('typing', ({ roomId, senderRole }) => {
+    socket.to(roomId).emit('chat:typing:start', { senderRole });
     socket.to(roomId).emit('typing', { senderRole });
   });
 
   socket.on('stop-typing', ({ roomId, senderRole }) => {
+    socket.to(roomId).emit('chat:typing:stop', { senderRole });
     socket.to(roomId).emit('stop-typing', { senderRole });
   });
 

@@ -201,252 +201,11 @@
 <div class="fixed top-[20%] -left-[10%] w-[40%] h-[40%] bg-primary-container/10 blur-[120px] rounded-full -z-10"></div>
 <div class="fixed bottom-[10%] -right-[10%] w-[30%] h-[30%] bg-secondary-container/20 blur-[100px] rounded-full -z-10"></div>
 
+<!-- CareNexus Chat V2 Engine -->
+<script src="/js/chatV2.js"></script>
+
 <script>
-const token = localStorage.getItem('token') || localStorage.getItem('care_token');
-const user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('care_user') || 'null');
-const roomId = localStorage.getItem('roomId');
-const sessionId = localStorage.getItem('sessionId');
-if (!token || !user || !roomId) location.href = 'dashboard.html';
-
-document.getElementById('chatTitle').textContent = user.role === 'mentor' ? 'Chatting with User' : 'Chatting with Mentor';
-
-const socket = io();
-socket.emit('join-room', roomId);
-
-// Web Crypto API AES-256-GCM E2EE Implementation
-let roomCryptoKey = null;
-
-async function getRoomKey(roomIdentifier) {
-  if (roomCryptoKey) return roomCryptoKey;
-  const enc = new TextEncoder();
-  const rawKeyMaterial = enc.encode('CareNexus-SafeSpace-Salt:' + roomIdentifier);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', rawKeyMaterial);
-  roomCryptoKey = await crypto.subtle.importKey(
-    'raw',
-    hashBuffer,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-  return roomCryptoKey;
-}
-
-async function encryptMessageText(plaintext, roomIdentifier) {
-  try {
-    const key = await getRoomKey(roomIdentifier);
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encodedPlain = new TextEncoder().encode(plaintext);
-    const encryptedBuffer = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: iv },
-      key,
-      encodedPlain
-    );
-    const ivBase64 = btoa(String.fromCharCode(...iv));
-    const cipherBase64 = btoa(String.fromCharCode(...new Uint8Array(encryptedBuffer)));
-    return `ENC:${ivBase64}:${cipherBase64}`;
-  } catch (err) {
-    console.error('Encryption error:', err);
-    return plaintext;
-  }
-}
-
-async function decryptMessageText(cipherPayload, roomIdentifier) {
-  if (!cipherPayload || !cipherPayload.startsWith('ENC:')) return cipherPayload;
-  try {
-    const parts = cipherPayload.split(':');
-    if (parts.length !== 3) return cipherPayload;
-    const ivStr = atob(parts[1]);
-    const cipherStr = atob(parts[2]);
-    const iv = new Uint8Array([...ivStr].map(c => c.charCodeAt(0)));
-    const cipherBuffer = new Uint8Array([...cipherStr].map(c => c.charCodeAt(0)));
-
-    const key = await getRoomKey(roomIdentifier);
-    const decryptedBuffer = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: iv },
-      key,
-      cipherBuffer
-    );
-    return new TextDecoder().decode(decryptedBuffer);
-  } catch (err) {
-    console.error('Decryption error:', err);
-    return '[🔒 Encrypted Message]';
-  }
-}
-
-fetch(`/api/sessions/${roomId}/messages`, {headers:{'Authorization':`Bearer ${token}`}})
-  .then(r => r.json()).then(async data => {
-    if (data.messages && data.messages.length > 0) {
-      for (const m of data.messages) {
-        const decrypted = await decryptMessageText(m.text, roomId);
-        appendMessage(decrypted, m.senderRole, m.createdAt, m._id);
-      }
-    }
-  });
-
-// Load session details for Mentor Briefing
-if (user.role === 'mentor') {
-  fetch(`/api/sessions/room/${roomId}`, {headers:{'Authorization':`Bearer ${token}`}})
-    .then(r => r.json()).then(data => {
-      if (data.session) {
-        const s = data.session;
-        document.getElementById('mentorBriefingCard').classList.remove('hidden');
-        document.getElementById('briefingMoodTag').textContent = s.moodTag || 'General Support';
-        document.getElementById('briefingFeelingsNote').textContent = s.userFeelingsNote ? `"${s.userFeelingsNote}"` : 'User requested general emotional guidance without a specific note.';
-        if (s.aiGuidance && s.aiGuidance.suggestedApproach) {
-          document.getElementById('briefingSuggestedApproach').textContent = s.aiGuidance.suggestedApproach;
-        }
-      }
-    }).catch(err => console.error('Error fetching session briefing:', err));
-}
-
-// Smart auto-scroll position tracking
-const messagesBox = document.getElementById('messages');
-let isUserScrolledUp = false;
-messagesBox.addEventListener('scroll', () => {
-  const distFromBottom = messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight;
-  isUserScrolledUp = distFromBottom > 100;
-});
-
-// Typing indicator listeners
-const msgInput = document.getElementById('msgInput');
-let typingTimer = null;
-
-msgInput.addEventListener('input', () => {
-  msgInput.style.height = 'auto';
-  msgInput.style.height = Math.min(msgInput.scrollHeight, 128) + 'px';
-  socket.emit('typing', { roomId, senderRole: user ? user.role : 'user' });
-  clearTimeout(typingTimer);
-  typingTimer = setTimeout(() => {
-    socket.emit('stop-typing', { roomId, senderRole: user ? user.role : 'user' });
-  }, 1500);
-});
-
-msgInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-    msgInput.style.height = 'auto';
-  }
-});
-
-socket.on('typing', ({ senderRole }) => {
-  if (user && senderRole !== user.role) {
-    const indicator = document.getElementById('typingIndicator');
-    const textSpan = document.getElementById('typingText');
-    if (textSpan) textSpan.textContent = `${senderRole === 'mentor' ? 'Mentor' : 'User'} is typing...`;
-    if (indicator) indicator.classList.remove('hidden');
-  }
-});
-
-socket.on('stop-typing', ({ senderRole }) => {
-  if (!user || senderRole !== user.role) {
-    const indicator = document.getElementById('typingIndicator');
-    if (indicator) indicator.classList.add('hidden');
-  }
-});
-
-const renderedMessageIds = new Set();
-
-socket.on('receive-message', async ({ _id, text, senderRole, createdAt }) => {
-  const indicator = document.getElementById('typingIndicator');
-  if (indicator) indicator.classList.add('hidden');
-  const decrypted = await decryptMessageText(text, roomId);
-  appendMessage(decrypted, senderRole, createdAt, _id);
-});
-
-socket.on('crisis-alert', () => {
-  document.getElementById('crisisBanner').classList.remove('hidden');
-});
-
-const CRISIS_TERMS = ['suicide', 'kill myself', 'end my life', 'want to die', 'hurt myself', 'self harm', 'end it all', 'give up'];
-
-function checkDistress(text) {
-  const lower = text.toLowerCase();
-  return CRISIS_TERMS.some(term => lower.includes(term));
-}
-
-function formatMessageText(raw) {
-  if (!raw) return '';
-  let safe = escHtml(raw);
-  // Code block `code`
-  safe = safe.replace(/`([^`]+)`/g, '<code class="bg-surface-container-high px-1.5 py-0.5 rounded text-xs font-mono">$1</code>');
-  // Bold **text**
-  safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  // Italic *text*
-  safe = safe.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  // Links
-  safe = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="underline text-primary break-all">$1</a>');
-  // Newlines
-  safe = safe.replace(/\n/g, '<br>');
-  return safe;
-}
-
-function appendMessage(text, senderRole, createdAt, msgId = null) {
-  if (msgId && msgId !== 'undefined' && msgId !== 'null') {
-    const idStr = String(msgId);
-    if (renderedMessageIds.has(idStr)) return;
-    renderedMessageIds.add(idStr);
-  }
-  const box = document.getElementById('messages');
-  const isMe = senderRole === user.role;
-  const time = new Date(createdAt || Date.now()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  const label = senderRole === 'mentor' ? 'Mentor' : 'User';
-  const wrap = document.createElement('div');
-  wrap.className = `flex ${isMe ? 'justify-end' : 'justify-start'}`;
-  const formattedContent = formatMessageText(text);
-  if (!isMe) {
-    wrap.innerHTML = `<div class="flex items-start gap-3 max-w-[85%]">
-      <div class="w-8 h-8 rounded-full bg-primary-container flex-shrink-0 flex items-center justify-center">
-        <span class="material-symbols-outlined text-[18px] text-primary">diversity_1</span>
-      </div>
-      <div>
-        <div class="bg-surface-container-low p-4 rounded-2xl rounded-tl-none shadow-sm text-on-surface leading-relaxed text-sm break-words">${formattedContent}</div>
-        <span class="text-[10px] text-on-surface-variant/60 ml-1 mt-1 block">${label} · ${time}</span>
-      </div>
-    </div>`;
-  } else {
-    wrap.innerHTML = `<div class="flex items-end gap-3 max-w-[85%]">
-      <div>
-        <div class="bg-primary text-on-primary p-4 rounded-2xl rounded-br-none shadow-sm leading-relaxed text-sm break-words">${formattedContent}</div>
-        <span class="text-[10px] text-on-surface-variant/60 mr-1 mt-1 block text-right">You · ${time}</span>
-      </div>
-    </div>`;
-  }
-  box.appendChild(wrap);
-  if (!isUserScrolledUp || isMe) {
-    box.scrollTop = box.scrollHeight;
-  }
-}
-
-async function sendMessage() {
-  const input = document.getElementById('msgInput');
-  const text = input.value.trim();
-  if (!text) return;
-  socket.emit('stop-typing', { roomId, senderRole: user ? user.role : 'user' });
-  if (checkDistress(text)) {
-    document.getElementById('crisisBanner').classList.remove('hidden');
-    socket.emit('trigger-crisis', { roomId, crisisLevel: 'critical', triggers: ['distress_keywords'] });
-  }
-  const encryptedText = await encryptMessageText(text, roomId);
-  const userId = user ? (user.id || user._id) : null;
-  socket.emit('send-message', {roomId, senderId: userId, senderRole: user ? user.role : 'user', text: encryptedText});
-  input.value = '';
-}
-
-async function endSession() {
-  if (!confirm('End this session?')) return;
-  hangUp();
-  await fetch(`/api/sessions/${sessionId}/complete`, {method:'POST', headers:{'Authorization':`Bearer ${token}`}});
-  socket.emit('leave-room', roomId);
-  localStorage.removeItem('roomId');
-  localStorage.removeItem('sessionId');
-  location.href = 'dashboard.html';
-}
-
-function escHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
 // ─── WebRTC Call Logic ────────────────────────────────────────────────────────
-
 let pc = null;
 let localStream = null;
 let callType = 'audio';
@@ -457,6 +216,11 @@ let callSeconds = 0;
 let pendingOffer = null;
 
 const iceConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+const callSocket = typeof io !== 'undefined' ? io() : null;
+const callRoomId = localStorage.getItem('roomId');
+if (callSocket && callRoomId) {
+  callSocket.emit('join-room', callRoomId);
+}
 
 async function startCall(type) {
   callType = type;
@@ -468,7 +232,7 @@ async function startCall(type) {
     setupPeerConnection();
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    socket.emit('call-offer', { roomId, offer, callType: type });
+    if (callSocket) callSocket.emit('call-offer', { roomId: callRoomId, offer, callType: type });
     showCallOverlay('Calling...');
   } catch (e) {
     alert('Could not access microphone/camera: ' + e.message);
@@ -484,7 +248,7 @@ function setupPeerConnection() {
   };
 
   pc.onicecandidate = e => {
-    if (e.candidate) socket.emit('call-ice', { roomId, candidate: e.candidate });
+    if (e.candidate && callSocket) callSocket.emit('call-ice', { roomId: callRoomId, candidate: e.candidate });
   };
 
   pc.onconnectionstatechange = () => {
@@ -498,23 +262,25 @@ function setupPeerConnection() {
 
 // ── Signaling events ──────────────────────────────────────────────────────────
 
-socket.on('call-offer', async ({ offer, callType: type }) => {
-  callType = type;
-  pendingOffer = offer;
-  document.getElementById('incomingIcon').textContent = type === 'video' ? 'videocam' : 'call';
-  document.getElementById('incomingType').textContent = type === 'video' ? 'Video Call' : 'Voice Call';
-  document.getElementById('incomingModal').classList.remove('hidden');
-});
+if (callSocket) {
+  callSocket.on('call-offer', async ({ offer, callType: type }) => {
+    callType = type;
+    pendingOffer = offer;
+    document.getElementById('incomingIcon').textContent = type === 'video' ? 'videocam' : 'call';
+    document.getElementById('incomingType').textContent = type === 'video' ? 'Video Call' : 'Voice Call';
+    document.getElementById('incomingModal').classList.remove('hidden');
+  });
 
-socket.on('call-answer', async ({ answer }) => {
-  if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
-});
+  callSocket.on('call-answer', async ({ answer }) => {
+    if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
+  });
 
-socket.on('call-ice', async ({ candidate }) => {
-  if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
-});
+  callSocket.on('call-ice', async ({ candidate }) => {
+    if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+  });
 
-socket.on('call-ended', () => cleanupCall());
+  callSocket.on('call-ended', () => cleanupCall());
+}
 
 // ── Accept / Reject ───────────────────────────────────────────────────────────
 
@@ -529,7 +295,7 @@ async function acceptCall() {
     await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer));
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
-    socket.emit('call-answer', { roomId, answer });
+    if (callSocket) callSocket.emit('call-answer', { roomId: callRoomId, answer });
     showCallOverlay('Connecting...');
   } catch (e) {
     alert('Could not access microphone/camera: ' + e.message);
@@ -538,13 +304,14 @@ async function acceptCall() {
 
 function rejectCall() {
   document.getElementById('incomingModal').classList.add('hidden');
-  socket.emit('call-ended', { roomId });
+  if (callSocket) callSocket.emit('call-ended', { roomId: callRoomId });
 }
 
 function hangUp() {
-  socket.emit('call-ended', { roomId });
+  if (callSocket) callSocket.emit('call-ended', { roomId: callRoomId });
   cleanupCall();
 }
+window.hangUp = hangUp;
 
 function cleanupCall() {
   if (pc) { pc.close(); pc = null; }
@@ -561,7 +328,6 @@ function cleanupCall() {
 function showCallOverlay(status) {
   document.getElementById('callStatusText').textContent = status;
   document.getElementById('callOverlay').classList.remove('hidden');
-  // hide camera button for audio-only calls
   document.getElementById('cameraBtn').style.display = callType === 'audio' ? 'none' : 'flex';
 }
 

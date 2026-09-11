@@ -169,7 +169,12 @@
   // 7. HTML Sanitization & Formatting
   function escHtml(t) {
     if (!t) return '';
-    return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return String(t)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   function formatMessageText(raw) {
@@ -1446,7 +1451,7 @@
               <p class="font-semibold text-on-surface text-xs">"${escHtml(qText)}"</p>
               ${qReason ? `<p class="text-[10px] text-on-surface-variant italic">${escHtml(qReason)}</p>` : ''}
               <div class="flex items-center gap-1.5">
-                <button onclick="insertSuggestedQuestion(${JSON.stringify(qText)})" 
+                <button data-question="${escHtml(qText)}" onclick="handleUseQuestionBtn(this)" 
                   class="flex-1 py-1 px-2 rounded-lg bg-primary text-on-primary hover:bg-primary-dim text-[10px] font-bold transition-colors flex items-center justify-center gap-1">
                   <span class="material-symbols-outlined text-xs">content_paste</span> Use in Chat
                 </button>
@@ -1501,9 +1506,29 @@
   function insertSuggestedQuestion(qText) {
     const input = document.getElementById('msgInput');
     if (input) {
-      input.value = qText;
+      if (input.disabled) {
+        if (typeof showToast === 'function') {
+          showToast('This session has ended and is read-only.');
+        } else {
+          alert('This session has ended and is read-only.');
+        }
+        return;
+      }
+      input.value = qText || '';
       input.focus();
+      if (typeof input.setSelectionRange === 'function') {
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
       input.dispatchEvent(new Event('input'));
+    }
+  }
+
+  function handleUseQuestionBtn(btn, closeModal = false) {
+    if (!btn) return;
+    const qText = btn.getAttribute('data-question') || '';
+    insertSuggestedQuestion(qText);
+    if (closeModal && typeof closeCopilotQuickModal === 'function') {
+      closeCopilotQuickModal();
     }
   }
 
@@ -1629,7 +1654,7 @@
             <div class="p-3 rounded-xl bg-primary-container/30 border border-primary/20 space-y-2">
               <p class="font-bold text-on-surface text-xs">"${escHtml(q.question)}"</p>
               ${q.reason ? `<p class="text-[10px] text-on-surface-variant italic">${escHtml(q.reason)}</p>` : ''}
-              <button onclick="insertSuggestedQuestion(${JSON.stringify(q.question)}); closeCopilotQuickModal();" 
+              <button data-question="${escHtml(q.question)}" onclick="handleUseQuestionBtn(this, true)" 
                 class="w-full py-1.5 px-3 rounded-lg bg-primary text-on-primary hover:bg-primary-dim font-bold text-xs flex items-center justify-center gap-1">
                 <span class="material-symbols-outlined text-xs">content_paste</span> Use Question in Input
               </button>
@@ -1791,6 +1816,7 @@
   window.generateCopilotSummary = generateCopilotSummary;
   window.closeCopilotSummaryModal = closeCopilotSummaryModal;
   window.insertSuggestedQuestion = insertSuggestedQuestion;
+  window.handleUseQuestionBtn = handleUseQuestionBtn;
 
   // Initialize data loading
   checkSessionStatus();

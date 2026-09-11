@@ -1247,6 +1247,231 @@
     }
   }
 
+  // 23. AI Mentor Copilot Engine (Private to Mentors)
+  let currentCopilotData = null;
+
+  async function initMentorCopilot() {
+    if (!user || user.role !== 'mentor') return;
+
+    const toggleBtn = document.getElementById('copilotToggleBtn');
+    if (toggleBtn) toggleBtn.classList.remove('hidden');
+
+    await fetchCopilotState();
+  }
+
+  function toggleCopilotPanel() {
+    if (!user || user.role !== 'mentor') return;
+    const panel = document.getElementById('mentorCopilotPanel');
+    if (panel) {
+      panel.classList.toggle('hidden');
+    }
+  }
+
+  async function fetchCopilotState() {
+    if (!user || user.role !== 'mentor') return;
+    try {
+      const activeSessionId = sessionId || roomId;
+      const res = await fetch(`/api/copilot/session/${activeSessionId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.copilot) {
+          currentCopilotData = data.copilot;
+          renderCopilotState(data.copilot);
+        }
+      }
+    } catch (err) {
+      console.error('[COPILOT] Error fetching state:', err);
+    }
+  }
+
+  function renderCopilotState(copilot) {
+    if (!copilot) return;
+
+    // Topic
+    const topicElem = document.getElementById('copilotTopic');
+    if (topicElem) topicElem.textContent = copilot.currentTopic || 'General Emotional Support';
+
+    // Key Points
+    const pointsElem = document.getElementById('copilotKeyPoints');
+    if (pointsElem) {
+      if (copilot.keyPoints && copilot.keyPoints.length > 0) {
+        pointsElem.innerHTML = copilot.keyPoints.map(kp => {
+          let sourcesHtml = '';
+          if (kp.sourceMessageIds && kp.sourceMessageIds.length > 0) {
+            sourcesHtml = kp.sourceMessageIds.map(sId => 
+              `<button onclick="jumpToMessage('${sId}')" class="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded hover:bg-primary/20 transition-colors font-mono">#msg</button>`
+            ).join(' ');
+          }
+          return `
+            <div class="p-2 rounded-lg bg-surface-container-low border border-outline-variant/10 leading-snug">
+              <span>• ${escHtml(kp.point || kp.text || kp)}</span>
+              ${sourcesHtml ? `<div class="mt-1 flex gap-1 items-center">${sourcesHtml}</div>` : ''}
+            </div>
+          `;
+        }).join('');
+      } else {
+        pointsElem.innerHTML = '<p class="italic text-[11px] text-on-surface-variant">No key points registered yet.</p>';
+      }
+    }
+
+    // Suggested Questions
+    const questElem = document.getElementById('copilotSuggestedQuestions');
+    if (questElem) {
+      if (copilot.suggestedQuestions && copilot.suggestedQuestions.length > 0) {
+        questElem.innerHTML = copilot.suggestedQuestions.map(q => {
+          const qText = typeof q === 'string' ? q : q.question;
+          const qReason = typeof q === 'object' && q.reason ? q.reason : null;
+          return `
+            <div class="p-2.5 rounded-xl bg-primary-container/20 border border-primary/20 space-y-1.5">
+              <p class="font-semibold text-on-surface text-xs">"${escHtml(qText)}"</p>
+              ${qReason ? `<p class="text-[10px] text-on-surface-variant italic">${escHtml(qReason)}</p>` : ''}
+              <button onclick="insertSuggestedQuestion(${JSON.stringify(qText)})" 
+                class="w-full py-1 px-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-bold transition-colors flex items-center justify-center gap-1">
+                <span class="material-symbols-outlined text-xs">content_paste</span> Use in Chat
+              </button>
+            </div>
+          `;
+        }).join('');
+      } else {
+        questElem.innerHTML = '<p class="italic text-[11px] text-on-surface-variant">No question suggestions right now.</p>';
+      }
+    }
+
+    // Action Items
+    const actElem = document.getElementById('copilotActionItems');
+    if (actElem) {
+      if (copilot.actionItems && copilot.actionItems.length > 0) {
+        actElem.innerHTML = copilot.actionItems.map(item => {
+          const itemId = item.id || item._id;
+          const checked = item.completed ? 'checked' : '';
+          return `
+            <label class="flex items-start gap-2 p-2 rounded-lg bg-surface-container-low border border-outline-variant/10 cursor-pointer hover:bg-surface-container-high transition-colors">
+              <input type="checkbox" ${checked} onchange="toggleCopilotActionItem('${itemId}', this.checked)" class="mt-0.5 rounded text-primary focus:ring-primary">
+              <span class="text-xs ${item.completed ? 'line-through opacity-60' : 'text-on-surface'}">${escHtml(item.text)}</span>
+            </label>
+          `;
+        }).join('');
+      } else {
+        actElem.innerHTML = '<p class="italic text-[11px] text-on-surface-variant">No active action items.</p>';
+      }
+    }
+  }
+
+  function insertSuggestedQuestion(qText) {
+    const input = document.getElementById('msgInput');
+    if (input) {
+      input.value = qText;
+      input.focus();
+      input.dispatchEvent(new Event('input'));
+    }
+  }
+
+  async function refreshCopilotAnalysis() {
+    if (!user || user.role !== 'mentor') return;
+    const btn = document.getElementById('copilotRefreshBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">refresh</span> Analyzing...';
+    }
+
+    try {
+      const activeSessionId = sessionId || roomId;
+      const res = await fetch(`/api/copilot/session/${activeSessionId}/refresh`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.copilot) {
+          currentCopilotData = data.copilot;
+          renderCopilotState(data.copilot);
+        }
+      }
+    } catch (err) {
+      console.error('[COPILOT] Refresh error:', err);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined text-sm">refresh</span> Refresh';
+      }
+    }
+  }
+
+  async function toggleCopilotActionItem(itemId, completed) {
+    if (!user || user.role !== 'mentor') return;
+    try {
+      const activeSessionId = sessionId || roomId;
+      const res = await fetch(`/api/copilot/session/${activeSessionId}/action-items/${itemId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ completed })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.copilot) {
+          currentCopilotData = data.copilot;
+          renderCopilotState(data.copilot);
+        }
+      }
+    } catch (err) {
+      console.error('[COPILOT] Action item toggle error:', err);
+    }
+  }
+
+  async function generateCopilotSummary() {
+    if (!user || user.role !== 'mentor') return;
+    const modal = document.getElementById('copilotSummaryModal');
+    const container = document.getElementById('copilotSummaryContent');
+    if (modal) modal.classList.remove('hidden');
+    if (container) container.innerHTML = '<p class="italic text-on-surface-variant flex items-center gap-2"><span class="material-symbols-outlined text-sm animate-spin">refresh</span> Generating comprehensive session summary...</p>';
+
+    try {
+      const activeSessionId = sessionId || roomId;
+      const res = await fetch(`/api/copilot/session/${activeSessionId}/summary`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const s = data.summary;
+        if (s && container) {
+          container.innerHTML = `
+            <div>
+              <h5 class="font-bold text-primary text-xs uppercase tracking-wider mb-1">Session Overview</h5>
+              <p class="bg-surface-container-low p-3 rounded-xl border border-outline-variant/10 leading-relaxed">${escHtml(s.overview || s.summaryText || 'No overview text.')}</p>
+            </div>
+            <div>
+              <h5 class="font-bold text-primary text-xs uppercase tracking-wider mb-1">Key Takeaways</h5>
+              <ul class="list-disc pl-4 space-y-1 bg-surface-container-low p-3 rounded-xl border border-outline-variant/10">
+                ${(s.keyTakeaways || []).map(t => `<li>${escHtml(t)}</li>`).join('') || '<li>No takeaways recorded.</li>'}
+              </ul>
+            </div>
+            <div>
+              <h5 class="font-bold text-primary text-xs uppercase tracking-wider mb-1">Suggested Follow-ups</h5>
+              <ul class="list-disc pl-4 space-y-1 bg-surface-container-low p-3 rounded-xl border border-outline-variant/10">
+                ${(s.suggestedFollowUps || []).map(f => `<li>${escHtml(f)}</li>`).join('') || '<li>No follow-ups suggested.</li>'}
+              </ul>
+            </div>
+          `;
+        }
+      } else {
+        if (container) container.innerHTML = '<p class="text-error font-bold">Failed to generate summary. Please try again.</p>';
+      }
+    } catch (err) {
+      if (container) container.innerHTML = '<p class="text-error font-bold">Error generating summary: ' + escHtml(err.message) + '</p>';
+    }
+  }
+
+  function closeCopilotSummaryModal() {
+    const modal = document.getElementById('copilotSummaryModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
   // Export functions to global window scope for inline event handlers
   window.sendMessage = sendMessage;
   window.sendQuickReply = sendQuickReply;
@@ -1274,8 +1499,17 @@
   window.toggleEmojiPicker = toggleEmojiPicker;
   window.insertEmoji = insertEmoji;
 
+  // Copilot Exports
+  window.toggleCopilotPanel = toggleCopilotPanel;
+  window.refreshCopilotAnalysis = refreshCopilotAnalysis;
+  window.toggleCopilotActionItem = toggleCopilotActionItem;
+  window.generateCopilotSummary = generateCopilotSummary;
+  window.closeCopilotSummaryModal = closeCopilotSummaryModal;
+  window.insertSuggestedQuestion = insertSuggestedQuestion;
+
   // Initialize data loading
   checkSessionStatus();
   loadHistory();
   loadMentorBriefing();
+  initMentorCopilot();
 })();

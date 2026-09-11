@@ -77,6 +77,7 @@ const bookingRoutes = require('./routes/booking');
 const questRoutes = require('./routes/quests');
 const notificationRoutes = require('./routes/notifications');
 const safetyRoutes = require('./routes/safety');
+const copilotRoutes = require('./routes/copilot');
 const notificationService = require('./services/notificationService');
 const { analyzeText } = require('./utils/nlpEngine');
 
@@ -90,6 +91,7 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/quests', questRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/safety', safetyRoutes);
+app.use('/api/copilot', copilotRoutes);
 
 // Serve frontend for all non-API routes
 app.get('*', (req, res) => {

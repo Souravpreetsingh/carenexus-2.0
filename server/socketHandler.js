@@ -2,6 +2,9 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const Message = require('./models/Message');
 const Session = require('./models/Session');
+const User = require('./models/User');
+const notificationService = require('./services/notificationService');
+const safetyService = require('./services/safetyService');
 const JWT_SECRET = process.env.JWT_SECRET || 'carenexus_jwt_secret_key_2026';
 
 function setupSocketIO(io) {
@@ -28,6 +31,9 @@ function setupSocketIO(io) {
 
   io.on('connection', (socket) => {
     console.log(`[CHAT-V2] socket connected: ${socket.id} authenticated_user: ${socket.userId || 'anonymous'} role: ${socket.userRole || 'none'}`);
+    if (socket.userId) {
+      socket.join(`user:${socket.userId}`);
+    }
 
     // Helper: Authenticate socket if token supplied in event payload
     function authenticateSocketToken(token) {
@@ -244,6 +250,35 @@ function setupSocketIO(io) {
         // Broadcast to all participants in the room (including sender & recipient)
         io.to(roomId).emit('chat:message', canonicalMessage);
         io.to(roomId).emit('receive-message', canonicalMessage);
+
+        // Trigger notification for recipient if in session
+        if (session) {
+          const recipientId = session.user.toString() === authState.userId
+            ? (session.mentor ? session.mentor.toString() : null)
+            : session.user.toString();
+          const recipientRole = authState.userRole === 'user' ? 'mentor' : 'user';
+
+          if (recipientId) {
+            const notifType = replyToPreview ? 'MESSAGE_REPLY' : 'NEW_MESSAGE';
+            const notifTitle = replyToPreview ? 'New Reply in Chat' : 'New Message';
+            const notifBody = replyToPreview ? 'Someone replied to your message in your safe space.' : 'You have a new message in your safe space.';
+
+            notificationService.createNotification({
+              recipientId,
+              recipientRole,
+              type: notifType,
+              title: notifTitle,
+              body: notifBody,
+              entityType: 'Session',
+              entityId: session._id.toString(),
+              sessionId: session._id.toString(),
+              roomId,
+              actorId: authState.userId,
+              actorRole: authState.userRole,
+              dedupeKey: `msg_notif_${canonicalMessage._id}`
+            }).catch(e => console.error('[SOCKET] Notification trigger error:', e.message));
+          }
+        }
 
         console.log(`[CHAT-V2] broadcast complete for message: ${canonicalMessage._id}`);
 

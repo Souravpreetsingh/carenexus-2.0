@@ -32,6 +32,10 @@ const userSchema = new mongoose.Schema({
     icon: { type: String },
     unlockedAt: { type: Date, default: Date.now }
   }],
+  accountStatus: { type: String, enum: ['ACTIVE', 'RESTRICTED', 'SUSPENDED', 'BANNED'], default: 'ACTIVE' },
+  statusReason: { type: String, default: '' },
+  statusExpiresAt: { type: Date, default: null },
+  restrictionDetails: { type: mongoose.Schema.Types.Mixed, default: {} },
   completedQuestsToday: [{ type: String }],
   createdAt: { type: Date, default: Date.now }
 });

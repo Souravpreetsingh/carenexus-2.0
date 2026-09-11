@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Notification Center | CareNexus</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>"/>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+  tailwind.config={darkMode:"class",theme:{extend:{colors:{
+    "secondary-container":"#b5edec","on-secondary-container":"#225a5a",
+    "outline-variant":"#bbbaaf","on-surface-variant":"#65655c",
+    "on-primary":"#ffffff","surface":"#fdffda","on-surface":"#383830",
+    "surface-container-low":"#fcf9f0","surface-container-lowest":"#ffffff",
+    "surface-container-high":"#f0eee3","primary-container":"#b9ece7",
+    "on-primary-container":"#285a56","primary":"#3c6d69","primary-dim":"#2f605d",
+    "error":"#af3d3b"
+  },fontFamily:{"headline":["Manrope"],"body":["Inter"]}}}}
+</script>
+<style>
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}
+  body{min-height:100dvh;background:#fdffda;}
+</style>
+</head>
+<body class="font-body text-on-surface flex flex-col min-h-screen">
+
+<!-- Header -->
+<header class="w-full bg-[#fdffda]/85 backdrop-blur-xl border-b border-primary/10 flex justify-between items-center px-4 sm:px-8 py-4 z-20 sticky top-0">
+  <div class="flex items-center gap-3">
+    <a href="dashboard.html" class="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center shadow-xs">
+      <span class="material-symbols-outlined text-primary">spa</span>
+    </a>
+    <div>
+      <h1 class="font-['Manrope'] font-bold text-[#3c6d69] tracking-tight text-lg leading-tight">Notification Center</h1>
+      <p class="text-[11px] text-on-surface-variant/70">Realtime updates, quiet hours &amp; alert controls</p>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <div id="navNotificationContainer"></div>
+    <a href="dashboard.html" class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-bold">
+      <span class="material-symbols-outlined text-base">arrow_back</span> Dashboard
+    </a>
+  </div>
+</header>
+
+<!-- Main Container -->
+<main class="flex-1 max-w-4xl w-full mx-auto px-4 py-6 sm:py-8 space-y-6">
+
+  <!-- Header Tabs & Controls -->
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-surface-container-lowest border border-outline-variant/15 p-4 rounded-2xl shadow-xs">
+    <div class="flex items-center gap-2">
+      <button data-tab="all" onclick="switchTab('all')" class="notif-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all bg-primary text-on-primary shadow-sm">
+        All Notifications
+      </button>
+      <button data-tab="unread" onclick="switchTab('unread')" class="notif-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high">
+        Unread Only <span id="notifCenterUnreadPill" class="ml-1 bg-primary/20 text-primary px-2 py-0.5 rounded-full text-[10px]">0 unread</span>
+      </button>
+      <button data-tab="preferences" onclick="switchTab('preferences')" class="notif-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high flex items-center gap-1">
+        <span class="material-symbols-outlined text-base">tune</span> Preferences
+      </button>
+    </div>
+
+    <button onclick="markAllRead()" class="flex items-center gap-1 text-xs font-bold text-primary hover:underline">
+      <span class="material-symbols-outlined text-base">done_all</span> Mark All as Read
+    </button>
+  </div>
+
+  <!-- Notifications List Section -->
+  <div id="notifCenterListSection" class="space-y-4">
+    <div id="notifCenterList" class="space-y-3">
+      <div class="p-8 text-center text-on-surface-variant/70 italic text-sm">Loading notifications...</div>
+    </div>
+    <div class="flex justify-center pt-2">
+      <button id="loadMoreNotifBtn" onclick="loadMoreNotifications()" class="hidden px-6 py-2.5 rounded-xl bg-surface-container-lowest border border-outline-variant/20 text-xs font-bold text-primary hover:bg-primary-container/30 transition-all">
+        Load More Notifications
+      </button>
+    </div>
+  </div>
+
+  <!-- Notification Preferences & Quiet Hours Section -->
+  <div id="notifPrefsSection" class="hidden bg-surface-container-lowest border border-outline-variant/15 p-6 rounded-2xl shadow-xs space-y-6">
+    <div class="border-b border-outline-variant/15 pb-4">
+      <h3 class="font-headline font-bold text-on-surface text-base flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">tune</span> Notification Preferences
+      </h3>
+      <p class="text-xs text-on-surface-variant mt-1">Customize how and when you receive CareNexus platform alerts.</p>
+    </div>
+
+    <form onsubmit="savePreferences(event)" class="space-y-6">
+      <!-- In-App Categories -->
+      <div class="space-y-3">
+        <h4 class="font-bold text-xs uppercase tracking-wider text-primary">In-App Notification Categories</h4>
+        <div class="space-y-2 text-xs">
+          <label class="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low cursor-pointer">
+            <input type="checkbox" id="prefInAppMessages" checked class="rounded border-outline-variant text-primary focus:ring-primary"/>
+            <div>
+              <span class="font-bold block">Chat &amp; Direct Message Replies</span>
+              <span class="text-on-surface-variant/70 text-[11px]">Notify me when a peer or mentor replies to a chat message.</span>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low cursor-pointer">
+            <input type="checkbox" id="prefInAppSessions" checked class="rounded border-outline-variant text-primary focus:ring-primary"/>
+            <div>
+              <span class="font-bold block">Support Session Updates</span>
+              <span class="text-on-surface-variant/70 text-[11px]">Notify me when session requests are accepted, completed, or updated.</span>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low cursor-pointer">
+            <input type="checkbox" id="prefInAppSafety" checked disabled class="rounded border-outline-variant text-primary opacity-60"/>
+            <div>
+              <span class="font-bold block text-on-surface">Trust &amp; Safety / Security Alerts (Required)</span>
+              <span class="text-on-surface-variant/70 text-[11px]">Essential safety cases, emergency alerts, and account security notifications cannot be disabled.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Quiet Hours -->
+      <div class="space-y-3 border-t border-outline-variant/15 pt-5">
+        <h4 class="font-bold text-xs uppercase tracking-wider text-primary flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-base">bedtime</span> Quiet Hours Mode
+        </h4>
+        <div class="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/15 space-y-4 text-xs">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" id="prefQuietHoursEnabled" class="rounded border-outline-variant text-primary focus:ring-primary"/>
+            <span class="font-bold">Enable Quiet Hours (Suppress non-critical push notifications)</span>
+          </label>
+          <div class="grid grid-cols-2 gap-4 max-w-sm">
+            <div>
+              <label class="block font-semibold text-on-surface-variant text-[11px] mb-1">Start Time</label>
+              <input type="time" id="prefQuietHoursStart" value="22:00" class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-2 text-xs font-mono"/>
+            </div>
+            <div>
+              <label class="block font-semibold text-on-surface-variant text-[11px] mb-1">End Time</label>
+              <input type="time" id="prefQuietHoursEnd" value="07:00" class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-2 text-xs font-mono"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button type="submit" class="px-6 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs hover:bg-primary-dim transition-all shadow-md">
+          Save Notification Preferences
+        </button>
+      </div>
+    </form>
+  </div>
+
+</main>
+
+<script src="/js/config.js"></script>
+<script src="/js/navNotificationWidget.js"></script>
+<script src="/js/notifications.js"></script>
+</body>
+</html>

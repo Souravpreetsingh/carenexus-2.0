@@ -61,6 +61,11 @@
     <h1 class="font-['Manrope'] font-bold text-[#3c6d69] tracking-tight text-lg">Safe Space</h1>
   </div>
   <div class="flex items-center gap-2">
+    <div id="navNotificationContainer"></div>
+    <a href="safety.html" title="Trust & Safety Center" class="flex items-center gap-1 px-3 py-2 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-bold">
+      <span class="material-symbols-outlined text-[18px]">verified_user</span>
+      <span class="hidden sm:inline">Safety</span>
+    </a>
     <button onclick="toggleChatSearch()" title="Search Session Messages"
       class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-semibold">
       <span class="material-symbols-outlined text-[18px]">search</span>
@@ -424,6 +429,7 @@
 
 <!-- CareNexus Chat V2 Engine -->
 <script src="/js/config.js"></script>
+<script src="/js/navNotificationWidget.js"></script>
 <script src="/js/chatV2.js"></script>
 
 <script>

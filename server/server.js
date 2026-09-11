@@ -75,6 +75,9 @@ const journalRoutes = require('./routes/journal');
 const aiRoutes = require('./routes/ai');
 const bookingRoutes = require('./routes/booking');
 const questRoutes = require('./routes/quests');
+const notificationRoutes = require('./routes/notifications');
+const safetyRoutes = require('./routes/safety');
+const notificationService = require('./services/notificationService');
 const { analyzeText } = require('./utils/nlpEngine');
 
 // Routes
@@ -85,6 +88,8 @@ app.use('/api/journal', journalRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/quests', questRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/safety', safetyRoutes);
 
 // Serve frontend for all non-API routes
 app.get('*', (req, res) => {
@@ -93,13 +98,16 @@ app.get('*', (req, res) => {
 
 const setupSocketIO = require('./socketHandler');
 setupSocketIO(io);
+notificationService.setSocketIO(io);
 
 // Connect DB and start server
 const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
 
 async function connectDatabase() {
   const customUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/carenexus';

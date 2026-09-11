@@ -2,9 +2,10 @@ const router = require('express').Router();
 const { v4: uuidv4 } = require('uuid');
 const Session = require('../models/Session');
 const Message = require('../models/Message');
-const auth = require('../middleware/auth');
-
 const User = require('../models/User');
+const auth = require('../middleware/auth');
+const notificationService = require('../services/notificationService');
+const safetyService = require('../services/safetyService');
 
 // AI Multi-Parameter Mentor-Matching Algorithm
 async function findBestMentorMatch(moodTag) {
@@ -41,6 +42,11 @@ router.post('/request', auth, async (req, res) => {
     if (req.user.role !== 'user') return res.status(403).json({ message: 'Only users can request sessions' });
     const { moodTag, userFeelingsNote, mentorId } = req.body;
 
+    const requestingUser = await User.findById(req.user.id);
+    if (requestingUser && (requestingUser.accountStatus === 'SUSPENDED' || requestingUser.accountStatus === 'BANNED')) {
+      return res.status(403).json({ message: `Account is ${requestingUser.accountStatus}. Session request is disabled.` });
+    }
+
     const existing = await Session.findOne({ user: req.user.id, status: { $in: ['pending', 'active'] } })
       .populate('recommendedMentor', 'username specialties rating bio education achievements');
     if (existing) return res.json({ session: existing });
@@ -55,6 +61,13 @@ router.post('/request', auth, async (req, res) => {
       const match = await findBestMentorMatch(moodTag);
       bestMentor = match.bestMentor;
       matchScore = match.matchScore;
+    }
+
+    if (bestMentor) {
+      const blocked = await safetyService.isBlocked(req.user.id, bestMentor._id);
+      if (blocked) {
+        return res.status(403).json({ message: 'Session request cannot be created with this mentor due to safety preferences.' });
+      }
     }
 
     // AI Analysis & Mentor Guidance Generation
@@ -93,6 +106,21 @@ router.post('/request', auth, async (req, res) => {
 
     const io = req.app.get('io');
     if (io) io.emit('new-request', { session: populatedSession });
+
+    if (bestMentor) {
+      await notificationService.notifyMentor(bestMentor._id, {
+        type: 'SESSION_REQUEST',
+        title: 'New Support Session Request',
+        body: `A member has requested support (${moodTag || 'General Support'}).`,
+        entityType: 'Session',
+        entityId: session._id.toString(),
+        sessionId: session._id.toString(),
+        roomId: session.roomId,
+        actorId: req.user.id,
+        actorRole: 'user',
+        dedupeKey: `sess_req_${session._id}`
+      });
+    }
 
     res.status(201).json({ session: populatedSession });
   } catch (err) {
@@ -177,6 +205,19 @@ router.post('/:id/accept', auth, async (req, res) => {
 
     const io = req.app.get('io');
     if (io) io.emit('request-accepted', { sessionId: session._id, roomId: session.roomId });
+
+    await notificationService.notifyUser(session.user._id, {
+      type: 'SESSION_ACCEPTED',
+      title: 'Mentor Accepted Your Request',
+      body: 'Your mentor is ready! Click to enter your private safe space.',
+      entityType: 'Session',
+      entityId: session._id.toString(),
+      sessionId: session._id.toString(),
+      roomId: session.roomId,
+      actorId: req.user.id,
+      actorRole: 'mentor',
+      dedupeKey: `sess_acc_${session._id}`
+    });
 
     res.json({ session });
   } catch (err) {

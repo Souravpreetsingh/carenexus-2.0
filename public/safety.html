@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Trust &amp; Safety Center | CareNexus</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>"/>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+  tailwind.config={darkMode:"class",theme:{extend:{colors:{
+    "secondary-container":"#b5edec","on-secondary-container":"#225a5a",
+    "outline-variant":"#bbbaaf","on-surface-variant":"#65655c",
+    "on-primary":"#ffffff","surface":"#fdffda","on-surface":"#383830",
+    "surface-container-low":"#fcf9f0","surface-container-lowest":"#ffffff",
+    "surface-container-high":"#f0eee3","primary-container":"#b9ece7",
+    "on-primary-container":"#285a56","primary":"#3c6d69","primary-dim":"#2f605d",
+    "error":"#af3d3b"
+  },fontFamily:{"headline":["Manrope"],"body":["Inter"]}}}}
+</script>
+<style>
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}
+  body{min-height:100dvh;background:#fdffda;}
+</style>
+</head>
+<body class="font-body text-on-surface flex flex-col min-h-screen">
+
+<!-- Header -->
+<header class="w-full bg-[#fdffda]/85 backdrop-blur-xl border-b border-primary/10 flex justify-between items-center px-4 sm:px-8 py-4 z-20 sticky top-0">
+  <div class="flex items-center gap-3">
+    <a href="dashboard.html" class="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center shadow-xs">
+      <span class="material-symbols-outlined text-primary">verified_user</span>
+    </a>
+    <div>
+      <h1 class="font-['Manrope'] font-bold text-[#3c6d69] tracking-tight text-lg leading-tight">Trust &amp; Safety Center</h1>
+      <p class="text-[11px] text-on-surface-variant/70">Your privacy, safety, and community wellbeing sanctuary</p>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <div id="navNotificationContainer"></div>
+    <a href="dashboard.html" class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-bold">
+      <span class="material-symbols-outlined text-base">arrow_back</span> Dashboard
+    </a>
+  </div>
+</header>
+
+<!-- Main Container -->
+<main class="flex-1 max-w-4xl w-full mx-auto px-4 py-6 sm:py-8 space-y-6">
+
+  <!-- Immediate Crisis Support Escalation Banner -->
+  <div class="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center flex-shrink-0 shadow-md">
+        <span class="material-symbols-outlined text-2xl">emergency</span>
+      </div>
+      <div>
+        <h4 class="font-headline font-bold text-rose-800 text-sm">In Immediate Danger or Distress?</h4>
+        <p class="text-rose-700/90 text-xs mt-0.5">CareNexus connects you directly to emergency resources and 24/7 crisis specialists.</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0 w-full md:w-auto justify-end">
+      <a href="tel:988" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow transition-all">
+        <span class="material-symbols-outlined text-[16px]">call</span> Call 988 Crisis Hotline
+      </a>
+    </div>
+  </div>
+
+  <!-- Header Navigation Tabs -->
+  <div class="flex items-center gap-2 bg-surface-container-lowest border border-outline-variant/15 p-2 rounded-2xl shadow-xs overflow-x-auto">
+    <button data-tab="report" onclick="switchSafetyTab('report')" class="safety-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all bg-primary text-on-primary shadow-sm flex items-center gap-1.5">
+      <span class="material-symbols-outlined text-base">report_problem</span> Report Problem
+    </button>
+    <button data-tab="my-reports" onclick="switchSafetyTab('my-reports')" class="safety-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high flex items-center gap-1.5">
+      <span class="material-symbols-outlined text-base">assignment</span> My Reports
+    </button>
+    <button data-tab="blocked" onclick="switchSafetyTab('blocked')" class="safety-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high flex items-center gap-1.5">
+      <span class="material-symbols-outlined text-base">block</span> Blocked Users
+    </button>
+    <button data-tab="privacy" onclick="switchSafetyTab('privacy')" class="safety-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high flex items-center gap-1.5">
+      <span class="material-symbols-outlined text-base">shield_lock</span> Privacy &amp; Data
+    </button>
+  </div>
+
+  <!-- Section 1: File Report -->
+  <div id="safetyReportSection" class="bg-surface-container-lowest border border-outline-variant/15 p-6 rounded-2xl shadow-xs space-y-6">
+    <div class="border-b border-outline-variant/15 pb-4">
+      <h3 class="font-headline font-bold text-on-surface text-base flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">report_problem</span> Submit a Trust &amp; Safety Report
+      </h3>
+      <p class="text-xs text-on-surface-variant mt-1">If you experienced harassment, inappropriate behavior, or safety concerns, report it confidentially to our moderation team.</p>
+    </div>
+
+    <form id="safetyReportForm" onsubmit="submitReportForm(event)" class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-on-surface mb-1">Target Type</label>
+          <select id="reportTargetType" class="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl p-2.5 text-xs text-on-surface focus:border-primary focus:outline-none">
+            <option value="message">Specific Message</option>
+            <option value="user">User / Mentor Profile</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-on-surface mb-1">Target ID (Message ID or User ID)</label>
+          <input type="text" id="reportTargetId" placeholder="e.g. Message ID or User ID" required class="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl p-2.5 text-xs text-on-surface focus:border-primary focus:outline-none"/>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-on-surface mb-1">Report Category</label>
+        <select id="reportCategory" required class="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl p-2.5 text-xs text-on-surface focus:border-primary focus:outline-none">
+          <option value="HARASSMENT">Harassment or Bullying</option>
+          <option value="ABUSE">Abusive or Harmful Language</option>
+          <option value="SPAM">Spam or Unsolicited Promotion</option>
+          <option value="INAPPROPRIATE_CONTENT">Inappropriate Content</option>
+          <option value="FRAUD">Impersonation or Fraud</option>
+          <option value="SAFETY_CONCERN">Immediate Safety Concern</option>
+          <option value="PROFESSIONAL_CONDUCT">Unprofessional Conduct</option>
+          <option value="OTHER">Other Issue</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-on-surface mb-1">Description &amp; Context (Optional)</label>
+        <textarea id="reportDescription" rows="4" placeholder="Provide additional context to assist our Trust &amp; Safety team in evaluating this case..." class="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl p-3 text-xs text-on-surface focus:border-primary focus:outline-none resize-none"></textarea>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button type="submit" class="px-6 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs hover:bg-primary-dim transition-all shadow-md">
+          Submit Confidential Report
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Section 2: My Submitted Reports -->
+  <div id="safetyMyReportsSection" class="hidden bg-surface-container-lowest border border-outline-variant/15 p-6 rounded-2xl shadow-xs space-y-4">
+    <div class="border-b border-outline-variant/15 pb-4">
+      <h3 class="font-headline font-bold text-on-surface text-base flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">assignment</span> My Submitted Safety Cases
+      </h3>
+      <p class="text-xs text-on-surface-variant mt-1">Track the review status and resolution of your submitted safety reports.</p>
+    </div>
+    <div id="myReportsList" class="space-y-3">
+      <div class="p-8 text-center text-on-surface-variant/70 italic text-xs">Loading submitted safety reports...</div>
+    </div>
+  </div>
+
+  <!-- Section 3: Blocked Users -->
+  <div id="safetyBlockedSection" class="hidden bg-surface-container-lowest border border-outline-variant/15 p-6 rounded-2xl shadow-xs space-y-4">
+    <div class="border-b border-outline-variant/15 pb-4">
+      <h3 class="font-headline font-bold text-on-surface text-base flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">block</span> Blocked Users List
+      </h3>
+      <p class="text-xs text-on-surface-variant mt-1">Blocked participants cannot initiate new support requests or direct interactions with you.</p>
+    </div>
+    <div id="blockedUsersList" class="space-y-3">
+      <div class="p-8 text-center text-on-surface-variant/70 italic text-xs">Loading blocked users...</div>
+    </div>
+  </div>
+
+  <!-- Section 4: Privacy Controls -->
+  <div id="safetyPrivacySection" class="hidden bg-surface-container-lowest border border-outline-variant/15 p-6 rounded-2xl shadow-xs space-y-4">
+    <div class="border-b border-outline-variant/15 pb-4">
+      <h3 class="font-headline font-bold text-on-surface text-base flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">shield_lock</span> Privacy &amp; Data Safeguards
+      </h3>
+      <p class="text-xs text-on-surface-variant mt-1">CareNexus enforces AES-256-GCM message encryption, identity shielding, and strict privacy controls.</p>
+    </div>
+    <div class="space-y-3 text-xs text-on-surface-variant leading-relaxed">
+      <div class="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/15 space-y-1">
+        <h5 class="font-bold text-on-surface text-xs">AES-256-GCM End-To-End Encryption</h5>
+        <p>All realtime chat messages and room payloads are encrypted client-side before wire transmission.</p>
+      </div>
+      <div class="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/15 space-y-1">
+        <h5 class="font-bold text-on-surface text-xs">Anonymous Peer Identity</h5>
+        <p>Your real contact information and personal credentials are never exposed during support sessions.</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="/js/config.js"></script>
+<script src="/js/navNotificationWidget.js"></script>
+<script src="/js/safety.js"></script>
+</body>
+</html>

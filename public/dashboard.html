@@ -10,6 +10,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>"/>
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="/js/config.js"></script>
+<script src="/js/navNotificationWidget.js"></script>
 <script src="/js/aiChatBot.js"></script>
 <script src="/js/soundscapes.js"></script>
 <script src="/js/booking.js"></script>
@@ -47,7 +48,12 @@
       <span class="text-[9px] uppercase font-bold text-on-surface-variant tracking-widest block -mt-1">Safe Space</span>
     </div>
   </div>
-  <div class="flex items-center gap-4">
+  <div class="flex items-center gap-3">
+    <div id="navNotificationContainer"></div>
+    <a href="safety.html" title="Trust & Safety Center" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-bold">
+      <span class="material-symbols-outlined text-[18px]">verified_user</span>
+      <span class="hidden sm:inline">Safety</span>
+    </a>
     <span id="navUser" class="text-xs font-bold text-on-surface-variant bg-surface-container-high px-3 py-1.5 rounded-full hidden md:block"></span>
     <button onclick="logout()" class="flex items-center gap-2 px-4 py-2 rounded-full text-error bg-error/10 hover:bg-error/20 transition-colors border border-error/20 text-xs font-bold">
       <span class="material-symbols-outlined text-[16px]">logout</span> Logout

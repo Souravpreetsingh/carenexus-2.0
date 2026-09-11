@@ -4,10 +4,10 @@ const Session = require('../models/Session');
 const Message = require('../models/Message');
 const MentorCopilotSession = require('../models/MentorCopilotSession');
 const aiService = require('../services/ai/aiService');
+const copilotLiveEngine = require('../services/copilotLiveEngine');
 const { logAudit } = require('../services/auditService');
 const { createRateLimiter } = require('../middleware/rateLimiter');
 
-// Server-side AES decryption helper for context pipeline
 const crypto = require('crypto');
 function decryptMessageText(cipherPayload, roomId) {
   if (!cipherPayload || typeof cipherPayload !== 'string' || !cipherPayload.startsWith('ENC:')) {
@@ -16,14 +16,6 @@ function decryptMessageText(cipherPayload, roomId) {
   try {
     const parts = cipherPayload.split(':');
     if (parts.length !== 3) return cipherPayload;
-    const iv = Buffer.from(parts[1], 'base64');
-    const cipherBuffer = Buffer.from(parts[2], 'base64');
-
-    const keyMaterial = Buffer.from('CareNexus-SafeSpace-Salt:' + roomId);
-    const key = crypto.createHash('sha256').update(keyMaterial).digest();
-
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    // Note: Node WebCrypto compatibility fallback
     return '[Encrypted Chat Message]';
   } catch (_) {
     return '[Encrypted Chat Message]';
@@ -87,11 +79,21 @@ router.get('/session/:sessionId', requireMentorCopilotAuth, async (req, res) => 
         mentorId,
         roomId: session.roomId,
         currentTopic: session.moodTag || 'General Emotional Support',
+        topicConfidence: 0.9,
+        topicHistory: [{ topic: session.moodTag || 'General Emotional Support', startedAt: new Date(), lastActiveAt: new Date(), confidence: 0.9 }],
         keyPoints: [],
         suggestedQuestions: [
-          { question: 'What has been on your mind most today?', reason: 'Initiate supportive active listening.' }
+          { id: `q_init_1`, question: 'What has been on your mind most today?', reason: 'Initiate supportive active listening.', used: false, dismissed: false }
         ],
-        actionItems: []
+        actionItems: [],
+        conversationSnapshot: {
+          topic: session.moodTag || 'General Emotional Support',
+          goal: 'Initial reflection',
+          recentDevelopment: 'Session started',
+          unresolved: 'Exploring member goals'
+        },
+        timeline: [{ id: `tl_init`, timestamp: new Date(), timeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), title: 'Session Initiated', type: 'INFO' }],
+        whatChanged: []
       });
     }
 
@@ -101,8 +103,8 @@ router.get('/session/:sessionId', requireMentorCopilotAuth, async (req, res) => 
   }
 });
 
-// POST /api/copilot/session/:sessionId/analyze or /refresh
-router.post('/session/:sessionId/analyze', requireMentorCopilotAuth, createRateLimiter({ windowMs: 60000, max: 15 }), async (req, res) => {
+// POST /api/copilot/session/:sessionId/analyze or /refresh (Manual Refresh)
+router.post('/session/:sessionId/analyze', requireMentorCopilotAuth, createRateLimiter({ windowMs: 60000, max: 20 }), async (req, res) => {
   try {
     const session = req.sessionDoc;
     const mentorId = req.user.id || req.user._id;
@@ -111,50 +113,21 @@ router.post('/session/:sessionId/analyze', requireMentorCopilotAuth, createRateL
       return res.status(403).json({ message: 'Session is completed. Copilot analysis is read-only.' });
     }
 
-    // Fetch authorized session messages
-    const rawMessages = await Message.find({ sessionId: session._id.toString() }).sort({ createdAt: 1 });
-    const cleanMessages = rawMessages.map(m => {
-      const obj = m.toObject();
-      obj.text = decryptMessageText(obj.text, session.roomId);
-      return obj;
-    });
+    // Cancel any pending live debounce timer for this session
+    copilotLiveEngine.cancelPendingAnalysis(session._id.toString());
 
-    const analysis = await aiService.analyzeSessionContext(cleanMessages, { roomId: session.roomId });
+    const io = req.app.get('io');
+    await copilotLiveEngine.runLiveAnalysis(session._id.toString(), io, 'MANUAL_REFRESH');
 
-    let copilotState = await MentorCopilotSession.findOne({ sessionId: session._id, mentorId });
-    if (!copilotState) {
-      copilotState = new MentorCopilotSession({ sessionId: session._id, mentorId, roomId: session.roomId });
-    }
+    const copilotState = await MentorCopilotSession.findOne({ sessionId: session._id, mentorId });
 
-    const lastMsg = cleanMessages.length > 0 ? cleanMessages[cleanMessages.length - 1] : null;
-
-    copilotState.currentTopic = analysis.currentTopic;
-    copilotState.keyPoints = analysis.keyPoints;
-    copilotState.suggestedQuestions = analysis.suggestedQuestions;
-    if (analysis.actionItems && analysis.actionItems.length > 0) {
-      // Merge action items preserving existing completed states
-      const existingMap = new Map((copilotState.actionItems || []).map(item => [item.text, item.completed]));
-      copilotState.actionItems = analysis.actionItems.map(item => ({
-        id: item.id || `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        text: item.text,
-        completed: existingMap.get(item.text) || false,
-        sourceMessageIds: item.sourceMessageIds || []
-      }));
-    }
-    copilotState.lastAnalyzedMessageId = lastMsg ? (lastMsg._id ? lastMsg._id.toString() : null) : null;
-    copilotState.lastAnalyzedAt = new Date();
-    copilotState.updatedAt = new Date();
-
-    await copilotState.save();
-
-    // Log Audit
     await logAudit({
       actorId: mentorId,
       actorRole: 'mentor',
-      action: 'COPILOT_ANALYSIS_REQUESTED',
+      action: 'COPILOT_MANUAL_REFRESH',
       entityType: 'MentorCopilotSession',
       entityId: copilotState._id.toString(),
-      metadata: { sessionId: session._id, currentTopic: analysis.currentTopic },
+      metadata: { sessionId: session._id, currentTopic: copilotState.currentTopic, version: copilotState.analysisVersion },
       req
     });
 
@@ -164,10 +137,87 @@ router.post('/session/:sessionId/analyze', requireMentorCopilotAuth, createRateL
   }
 });
 
-// POST /api/copilot/session/:sessionId/refresh (Combined Refresh)
-router.post('/session/:sessionId/refresh', requireMentorCopilotAuth, createRateLimiter({ windowMs: 60000, max: 15 }), async (req, res) => {
+// POST /api/copilot/session/:sessionId/refresh
+router.post('/session/:sessionId/refresh', requireMentorCopilotAuth, createRateLimiter({ windowMs: 60000, max: 20 }), async (req, res) => {
   req.url = `/session/${req.params.sessionId}/analyze`;
   return router.handle(req, res);
+});
+
+// POST /api/copilot/session/:sessionId/ask-next (Generate Targeted Questions)
+router.post('/session/:sessionId/ask-next', requireMentorCopilotAuth, createRateLimiter({ windowMs: 60000, max: 15 }), async (req, res) => {
+  try {
+    const session = req.sessionDoc;
+    const mentorId = req.user.id || req.user._id;
+
+    const rawMessages = await Message.find({ sessionId: session._id.toString() }).sort({ createdAt: 1 });
+    const cleanMessages = rawMessages.map(m => m.toObject());
+
+    const copilotState = await MentorCopilotSession.findOne({ sessionId: session._id, mentorId });
+    const result = await aiService.generateAskNext(cleanMessages, copilotState || {});
+
+    res.json({ success: true, questions: result.questions || [] });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/copilot/session/:sessionId/catch-up (Concise Summary of Recent Developments)
+router.post('/session/:sessionId/catch-up', requireMentorCopilotAuth, createRateLimiter({ windowMs: 60000, max: 15 }), async (req, res) => {
+  try {
+    const session = req.sessionDoc;
+    const mentorId = req.user.id || req.user._id;
+
+    const rawMessages = await Message.find({ sessionId: session._id.toString() }).sort({ createdAt: 1 });
+    const cleanMessages = rawMessages.map(m => m.toObject());
+
+    const copilotState = await MentorCopilotSession.findOne({ sessionId: session._id, mentorId });
+    const result = await aiService.generateCatchUp(cleanMessages, copilotState || {});
+
+    res.json({ success: true, catchUpText: result.catchUpText });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/copilot/session/:sessionId/what-changed (Delta analysis)
+router.post('/session/:sessionId/what-changed', requireMentorCopilotAuth, async (req, res) => {
+  try {
+    const session = req.sessionDoc;
+    const mentorId = req.user.id || req.user._id;
+
+    const copilotState = await MentorCopilotSession.findOne({ sessionId: session._id, mentorId });
+    const changes = copilotState ? (copilotState.whatChanged || []) : [];
+
+    res.json({ success: true, changes });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PATCH /api/copilot/session/:sessionId/questions/:questionId (Toggle Question Used / Dismissed)
+router.patch('/session/:sessionId/questions/:questionId', requireMentorCopilotAuth, async (req, res) => {
+  try {
+    const session = req.sessionDoc;
+    const mentorId = req.user.id || req.user._id;
+    const { questionId } = req.params;
+    const { used, dismissed } = req.body;
+
+    const copilotState = await MentorCopilotSession.findOne({ sessionId: session._id, mentorId });
+    if (!copilotState) return res.status(404).json({ message: 'Copilot state not found.' });
+
+    const q = (copilotState.suggestedQuestions || []).find(item => item.id === questionId || item._id.toString() === questionId);
+    if (!q) return res.status(404).json({ message: 'Question suggestion not found.' });
+
+    if (used !== undefined) q.used = Boolean(used);
+    if (dismissed !== undefined) q.dismissed = Boolean(dismissed);
+
+    copilotState.updatedAt = new Date();
+    await copilotState.save();
+
+    res.json({ success: true, copilot: copilotState });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 // PATCH /api/copilot/session/:sessionId/action-items/:itemId (Toggle action item)
@@ -181,7 +231,7 @@ router.patch('/session/:sessionId/action-items/:itemId', requireMentorCopilotAut
     const copilotState = await MentorCopilotSession.findOne({ sessionId: session._id, mentorId });
     if (!copilotState) return res.status(404).json({ message: 'Copilot state not found.' });
 
-    const item = copilotState.actionItems.find(a => a.id === itemId || a._id.toString() === itemId);
+    const item = (copilotState.actionItems || []).find(a => a.id === itemId || a._id.toString() === itemId);
     if (!item) return res.status(404).json({ message: 'Action item not found.' });
 
     item.completed = completed !== undefined ? Boolean(completed) : !item.completed;
@@ -194,6 +244,29 @@ router.patch('/session/:sessionId/action-items/:itemId', requireMentorCopilotAut
   }
 });
 
+// PATCH /api/copilot/session/:sessionId/toggle-live (Pause / Resume Live Intelligence)
+router.patch('/session/:sessionId/toggle-live', requireMentorCopilotAuth, async (req, res) => {
+  try {
+    const session = req.sessionDoc;
+    const mentorId = req.user.id || req.user._id;
+    const { isLivePaused } = req.body;
+
+    const copilotState = await MentorCopilotSession.findOne({ sessionId: session._id, mentorId });
+    if (!copilotState) return res.status(404).json({ message: 'Copilot state not found.' });
+
+    copilotState.isLivePaused = isLivePaused !== undefined ? Boolean(isLivePaused) : !copilotState.isLivePaused;
+    if (copilotState.isLivePaused) {
+      copilotLiveEngine.cancelPendingAnalysis(session._id.toString());
+    }
+    copilotState.updatedAt = new Date();
+    await copilotState.save();
+
+    res.json({ success: true, isLivePaused: copilotState.isLivePaused, copilot: copilotState });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // POST /api/copilot/session/:sessionId/summary (Generate Summary)
 router.post('/session/:sessionId/summary', requireMentorCopilotAuth, createRateLimiter({ windowMs: 60000, max: 10 }), async (req, res) => {
   try {
@@ -201,11 +274,7 @@ router.post('/session/:sessionId/summary', requireMentorCopilotAuth, createRateL
     const mentorId = req.user.id || req.user._id;
 
     const rawMessages = await Message.find({ sessionId: session._id.toString() }).sort({ createdAt: 1 });
-    const cleanMessages = rawMessages.map(m => {
-      const obj = m.toObject();
-      obj.text = decryptMessageText(obj.text, session.roomId);
-      return obj;
-    });
+    const cleanMessages = rawMessages.map(m => m.toObject());
 
     const summaryData = await aiService.generateSessionSummary(cleanMessages, { roomId: session.roomId });
 

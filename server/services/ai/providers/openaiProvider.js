@@ -45,39 +45,102 @@ async function callLLM(prompt, systemInstructions, options = {}) {
 }
 
 async function analyzeContext(messages = [], options = {}) {
+  return analyzeLiveContext(messages, {}, options);
+}
+
+async function analyzeLiveContext(messages = [], existingState = {}, options = {}) {
   try {
+    const apiKey = process.env.AI_API_KEY;
+    if (!apiKey) return await mockProvider.analyzeLiveContext(messages, existingState, options);
+
     const formattedHistory = messages.map(m => `[${m.senderRole.toUpperCase()}] ${m._id ? `(id:${m._id})` : ''}: ${m.text}`).join('\n');
 
     const systemInstructions = `You are the CareNexus AI Mentor Copilot system.
-Your job is to analyze the conversation between a User and a Mentor to help the Mentor understand the discussion.
-You are a PRIVATE assistant for the Mentor. Never output medical diagnoses or prescriptions.
+Your job is to analyze the active conversation between a User and a Mentor to assist the Mentor.
+You are a PRIVATE assistant for the Mentor. Never output medical diagnoses or clinical prescriptions.
+
 Output strict JSON matching this schema:
 {
   "currentTopic": "Short topic string",
+  "topicConfidence": 0.9,
   "keyPoints": [
     { "text": "Key observation", "sourceMessageIds": ["msgId"], "confidence": 0.9 }
   ],
+  "userGoals": [
+    { "id": "goal_1", "text": "Stated user goal", "confidence": 0.9, "sourceMessageIds": [], "status": "ACTIVE" }
+  ],
+  "unresolvedTopics": [
+    { "id": "unres_1", "text": "Unresolved issue", "sourceMessageIds": [] }
+  ],
   "suggestedQuestions": [
-    { "question": "Follow-up question?", "reason": "Why this question helps." }
+    { "id": "q_1", "question": "Follow-up question?", "reason": "Why this question helps." }
   ],
   "actionItems": [
     { "id": "act_1", "text": "Action item description", "completed": false, "sourceMessageIds": [] }
-  ]
+  ],
+  "conversationSnapshot": {
+    "topic": "Current topic",
+    "goal": "Primary goal",
+    "recentDevelopment": "Recent development",
+    "unresolved": "Primary unresolved area"
+  }
 }`;
 
     const prompt = `<chat_history>\n${formattedHistory}\n</chat_history>\n\nAnalyze the chat history above and return structured JSON.`;
 
     const json = await callLLM(prompt, systemInstructions, options);
     return {
-      currentTopic: json.currentTopic || 'General Support',
+      currentTopic: json.currentTopic || existingState.currentTopic || 'General Support',
+      topicConfidence: json.topicConfidence || 0.9,
       keyPoints: Array.isArray(json.keyPoints) ? json.keyPoints : [],
+      userGoals: Array.isArray(json.userGoals) ? json.userGoals : [],
+      unresolvedTopics: Array.isArray(json.unresolvedTopics) ? json.unresolvedTopics : [],
       suggestedQuestions: Array.isArray(json.suggestedQuestions) ? json.suggestedQuestions : [],
-      actionItems: Array.isArray(json.actionItems) ? json.actionItems : []
+      actionItems: Array.isArray(json.actionItems) ? json.actionItems : [],
+      conversationSnapshot: json.conversationSnapshot || {}
     };
   } catch (err) {
-    console.warn('[OPENAI-PROVIDER] LLM call failed, falling back to mock provider:', err.message);
-    return await mockProvider.analyzeContext(messages, options);
+    console.warn('[OPENAI-PROVIDER] Live context LLM call failed, falling back to mock provider:', err.message);
+    return await mockProvider.analyzeLiveContext(messages, existingState, options);
   }
+}
+
+async function generateAskNext(messages = [], existingState = {}, options = {}) {
+  try {
+    const apiKey = process.env.AI_API_KEY;
+    if (!apiKey) return await mockProvider.generateAskNext(messages, existingState, options);
+
+    const formattedHistory = messages.slice(-10).map(m => `[${m.senderRole.toUpperCase()}]: ${m.text}`).join('\n');
+    const systemInstructions = `You are the CareNexus AI Mentor Copilot.
+Generate 1-3 targeted, empathetic follow-up questions for the mentor to ask next.
+Return JSON format: { "questions": [ { "question": "...", "reason": "..." } ] }`;
+
+    const json = await callLLM(`<chat_history>\n${formattedHistory}\n</chat_history>`, systemInstructions, options);
+    return { questions: Array.isArray(json.questions) ? json.questions : [] };
+  } catch (err) {
+    return await mockProvider.generateAskNext(messages, existingState, options);
+  }
+}
+
+async function generateCatchUp(messages = [], existingState = {}, options = {}) {
+  try {
+    const apiKey = process.env.AI_API_KEY;
+    if (!apiKey) return await mockProvider.generateCatchUp(messages, existingState, options);
+
+    const formattedHistory = messages.slice(-12).map(m => `[${m.senderRole.toUpperCase()}]: ${m.text}`).join('\n');
+    const systemInstructions = `You are the CareNexus AI Mentor Copilot.
+Provide a concise private catch-up summary of the latest conversation developments for the mentor.
+Return JSON format: { "catchUpText": "..." }`;
+
+    const json = await callLLM(`<chat_history>\n${formattedHistory}\n</chat_history>`, systemInstructions, options);
+    return { catchUpText: json.catchUpText || 'Latest conversation analyzed.' };
+  } catch (err) {
+    return await mockProvider.generateCatchUp(messages, existingState, options);
+  }
+}
+
+async function generateWhatChanged(existingState = {}, newAnalysis = {}, options = {}) {
+  return await mockProvider.generateWhatChanged(existingState, newAnalysis, options);
 }
 
 async function generateSummary(messages = [], options = {}) {
@@ -89,10 +152,11 @@ Generate a structured, professional session summary for the Mentor.
 Output strict JSON matching this schema:
 {
   "overview": "Short neutral summary of the session",
+  "keyTakeaways": ["Takeaway 1"],
   "keyTopics": ["Topic 1", "Topic 2"],
   "goals": ["Goal 1"],
   "actionItems": ["Action 1"],
-  "followUpSuggestions": ["Suggestion 1"]
+  "suggestedFollowUps": ["Suggestion 1"]
 }`;
 
     const prompt = `<chat_history>\n${formattedHistory}\n</chat_history>\n\nSummarize the session history above in JSON format.`;
@@ -100,10 +164,11 @@ Output strict JSON matching this schema:
     const json = await callLLM(prompt, systemInstructions, options);
     return {
       overview: json.overview || 'Session summary generated.',
+      keyTakeaways: Array.isArray(json.keyTakeaways) ? json.keyTakeaways : [],
       keyTopics: Array.isArray(json.keyTopics) ? json.keyTopics : [],
       goals: Array.isArray(json.goals) ? json.goals : [],
       actionItems: Array.isArray(json.actionItems) ? json.actionItems : [],
-      followUpSuggestions: Array.isArray(json.followUpSuggestions) ? json.followUpSuggestions : [],
+      suggestedFollowUps: Array.isArray(json.suggestedFollowUps) ? json.suggestedFollowUps : [],
       generatedAt: new Date()
     };
   } catch (err) {
@@ -114,5 +179,9 @@ Output strict JSON matching this schema:
 
 module.exports = {
   analyzeContext,
+  analyzeLiveContext,
+  generateAskNext,
+  generateCatchUp,
+  generateWhatChanged,
   generateSummary
 };

@@ -13,11 +13,9 @@ function sanitizeAndLimitMessages(rawMessages = []) {
   const maxMessages = Number(process.env.COPILOT_MAX_MESSAGES) || 30;
   const maxChars = Number(process.env.COPILOT_MAX_CONTEXT_CHARS) || 8000;
 
-  // Filter out deleted messages
   const valid = rawMessages.filter(m => m && !m.isDeleted && m.text);
   const sliced = valid.slice(-maxMessages);
 
-  // Character limit budget check
   let charCount = 0;
   const budgeted = [];
 
@@ -33,13 +31,49 @@ function sanitizeAndLimitMessages(rawMessages = []) {
 }
 
 async function analyzeSessionContext(messages = [], options = {}) {
+  return analyzeLiveContext(messages, {}, options);
+}
+
+async function analyzeLiveContext(messages = [], existingState = {}, options = {}) {
   try {
     const cleanMessages = sanitizeAndLimitMessages(messages);
     const provider = getActiveProvider();
-    return await provider.analyzeContext(cleanMessages, options);
+    return await provider.analyzeLiveContext(cleanMessages, existingState, options);
   } catch (err) {
     console.error('[AI-SERVICE] Context analysis error:', err.message);
-    return await mockProvider.analyzeContext(messages, options);
+    return await mockProvider.analyzeLiveContext(messages, existingState, options);
+  }
+}
+
+async function generateAskNext(messages = [], existingState = {}, options = {}) {
+  try {
+    const cleanMessages = sanitizeAndLimitMessages(messages);
+    const provider = getActiveProvider();
+    return await provider.generateAskNext(cleanMessages, existingState, options);
+  } catch (err) {
+    console.error('[AI-SERVICE] generateAskNext error:', err.message);
+    return await mockProvider.generateAskNext(messages, existingState, options);
+  }
+}
+
+async function generateCatchUp(messages = [], existingState = {}, options = {}) {
+  try {
+    const cleanMessages = sanitizeAndLimitMessages(messages);
+    const provider = getActiveProvider();
+    return await provider.generateCatchUp(cleanMessages, existingState, options);
+  } catch (err) {
+    console.error('[AI-SERVICE] generateCatchUp error:', err.message);
+    return await mockProvider.generateCatchUp(messages, existingState, options);
+  }
+}
+
+async function generateWhatChanged(existingState = {}, newAnalysis = {}, options = {}) {
+  try {
+    const provider = getActiveProvider();
+    return await provider.generateWhatChanged(existingState, newAnalysis, options);
+  } catch (err) {
+    console.error('[AI-SERVICE] generateWhatChanged error:', err.message);
+    return await mockProvider.generateWhatChanged(existingState, newAnalysis, options);
   }
 }
 
@@ -56,5 +90,9 @@ async function generateSessionSummary(messages = [], options = {}) {
 
 module.exports = {
   analyzeSessionContext,
+  analyzeLiveContext,
+  generateAskNext,
+  generateCatchUp,
+  generateWhatChanged,
   generateSessionSummary
 };

@@ -1247,14 +1247,55 @@
     }
   }
 
-  // 23. AI Mentor Copilot Engine (Private to Mentors)
-  let currentCopilotData = null;
+  // 23. AI Mentor Copilot Engine — Phase 2: Live Session Intelligence
+  const copilotStore = {
+    state: null,
+    merge(newState) {
+      if (!newState) return;
+      // Versioning guard: never overwrite with older analysis version
+      if (this.state && newState.analysisVersion && newState.analysisVersion < this.state.analysisVersion) {
+        console.warn(`[COPILOT-STORE] Ignored out-of-order state (v${newState.analysisVersion} < v${this.state.analysisVersion})`);
+        return;
+      }
+      this.state = { ...this.state, ...newState };
+      renderCopilotState(this.state);
+    }
+  };
 
   async function initMentorCopilot() {
     if (!user || user.role !== 'mentor') return;
 
     const toggleBtn = document.getElementById('copilotToggleBtn');
     if (toggleBtn) toggleBtn.classList.remove('hidden');
+
+    // Subscribe to realtime mentor-private Copilot events
+    const activeSocket = getCareNexusSocket();
+    if (activeSocket) {
+      activeSocket.on('copilot:update', (data) => {
+        if (data && data.copilot) {
+          console.log(`[COPILOT-SOCKET] Received realtime update v${data.copilot.analysisVersion}`);
+          copilotStore.merge(data.copilot);
+        }
+      });
+
+      activeSocket.on('copilot:analysis:start', (data) => {
+        console.log('[COPILOT-SOCKET] Analysis started...');
+        const statusText = document.getElementById('copilotAnalysisStatusText');
+        if (statusText) statusText.textContent = 'Analyzing latest conversation...';
+      });
+
+      activeSocket.on('copilot:analysis:complete', (data) => {
+        console.log('[COPILOT-SOCKET] Analysis complete v' + data.version);
+        const statusText = document.getElementById('copilotAnalysisStatusText');
+        if (statusText) statusText.textContent = 'Updated just now';
+      });
+
+      activeSocket.on('copilot:error', (data) => {
+        console.warn('[COPILOT-SOCKET] Error notification:', data.error);
+        const statusText = document.getElementById('copilotAnalysisStatusText');
+        if (statusText) statusText.textContent = 'Unable to update Copilot right now';
+      });
+    }
 
     await fetchCopilotState();
   }
@@ -1277,8 +1318,7 @@
       if (res.ok) {
         const data = await res.json();
         if (data.copilot) {
-          currentCopilotData = data.copilot;
-          renderCopilotState(data.copilot);
+          copilotStore.merge(data.copilot);
         }
       }
     } catch (err) {
@@ -1289,9 +1329,55 @@
   function renderCopilotState(copilot) {
     if (!copilot) return;
 
-    // Topic
+    // Live Badge Toggle State
+    const liveBadgeText = document.getElementById('copilotLiveBadgeText');
+    const liveToggleBtn = document.getElementById('copilotLiveToggleBtn');
+    if (liveBadgeText && liveToggleBtn) {
+      if (copilot.isLivePaused) {
+        liveBadgeText.textContent = '⏸ PAUSED';
+        liveToggleBtn.className = 'px-2 py-1 rounded-lg bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 text-[10px] font-bold border border-amber-500/20 flex items-center gap-1 transition-colors';
+      } else {
+        liveBadgeText.textContent = '● LIVE';
+        liveToggleBtn.className = 'px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 text-[10px] font-bold border border-emerald-500/20 flex items-center gap-1 transition-colors';
+      }
+    }
+
+    // Status Text
+    const statusText = document.getElementById('copilotAnalysisStatusText');
+    if (statusText) {
+      if (copilot.status === 'ANALYZING') {
+        statusText.textContent = 'Analyzing latest conversation...';
+      } else if (copilot.isLivePaused) {
+        statusText.textContent = 'Live updates paused';
+      } else if (copilot.lastAnalyzedAt) {
+        const timeAgoStr = new Date(copilot.lastAnalyzedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        statusText.textContent = `Updated at ${timeAgoStr} (v${copilot.analysisVersion || 1})`;
+      } else {
+        statusText.textContent = 'Listening for conversation updates...';
+      }
+    }
+
+    // Live Snapshot Card
     const topicElem = document.getElementById('copilotTopic');
     if (topicElem) topicElem.textContent = copilot.currentTopic || 'General Emotional Support';
+
+    const confidenceElem = document.getElementById('copilotTopicConfidence');
+    if (confidenceElem) {
+      const confPct = Math.round((copilot.topicConfidence || 0.9) * 100);
+      confidenceElem.textContent = `${confPct}% Match`;
+    }
+
+    const snapshotGoal = document.getElementById('copilotSnapshotGoal');
+    if (snapshotGoal) {
+      const goalText = copilot.conversationSnapshot?.goal || (copilot.userGoals && copilot.userGoals.length > 0 ? copilot.userGoals[0].text : 'Express feelings & gain clarity');
+      snapshotGoal.textContent = goalText;
+    }
+
+    const snapshotUnresolved = document.getElementById('copilotSnapshotUnresolved');
+    if (snapshotUnresolved) {
+      const unresText = copilot.conversationSnapshot?.unresolved || (copilot.unresolvedTopics && copilot.unresolvedTopics.length > 0 ? copilot.unresolvedTopics[0].text : 'Exploring session context');
+      snapshotUnresolved.textContent = unresText;
+    }
 
     // Key Points
     const pointsElem = document.getElementById('copilotKeyPoints');
@@ -1316,21 +1402,59 @@
       }
     }
 
+    // User Goals
+    const goalsElem = document.getElementById('copilotUserGoals');
+    if (goalsElem) {
+      if (copilot.userGoals && copilot.userGoals.length > 0) {
+        goalsElem.innerHTML = copilot.userGoals.map(g => `
+          <div class="p-2 rounded-lg bg-surface-container-low border border-outline-variant/10 flex items-center justify-between">
+            <span class="text-xs text-on-surface font-medium">🎯 ${escHtml(g.text)}</span>
+            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ${g.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' : 'bg-primary/10 text-primary'}">${g.status || 'ACTIVE'}</span>
+          </div>
+        `).join('');
+      } else {
+        goalsElem.innerHTML = '<p class="italic text-[11px] text-on-surface-variant">No explicit goals detected yet.</p>';
+      }
+    }
+
+    // Unresolved Topics
+    const unresElem = document.getElementById('copilotUnresolvedTopics');
+    if (unresElem) {
+      if (copilot.unresolvedTopics && copilot.unresolvedTopics.length > 0) {
+        unresElem.innerHTML = copilot.unresolvedTopics.map(u => `
+          <div class="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-900 leading-snug">
+            <span class="font-bold">⚠️ Unresolved:</span> ${escHtml(u.text)}
+          </div>
+        `).join('');
+      } else {
+        unresElem.innerHTML = '<p class="italic text-[11px] text-on-surface-variant">No unresolved issues flagged.</p>';
+      }
+    }
+
     // Suggested Questions
     const questElem = document.getElementById('copilotSuggestedQuestions');
     if (questElem) {
-      if (copilot.suggestedQuestions && copilot.suggestedQuestions.length > 0) {
-        questElem.innerHTML = copilot.suggestedQuestions.map(q => {
+      const activeQuestions = (copilot.suggestedQuestions || []).filter(q => !q.dismissed);
+      if (activeQuestions.length > 0) {
+        questElem.innerHTML = activeQuestions.map(q => {
+          const qId = q.id || q._id;
           const qText = typeof q === 'string' ? q : q.question;
           const qReason = typeof q === 'object' && q.reason ? q.reason : null;
+          const isUsed = q.used;
           return `
-            <div class="p-2.5 rounded-xl bg-primary-container/20 border border-primary/20 space-y-1.5">
+            <div class="p-2.5 rounded-xl ${isUsed ? 'bg-surface-container opacity-70' : 'bg-primary-container/20 border border-primary/20'} space-y-1.5">
               <p class="font-semibold text-on-surface text-xs">"${escHtml(qText)}"</p>
               ${qReason ? `<p class="text-[10px] text-on-surface-variant italic">${escHtml(qReason)}</p>` : ''}
-              <button onclick="insertSuggestedQuestion(${JSON.stringify(qText)})" 
-                class="w-full py-1 px-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-bold transition-colors flex items-center justify-center gap-1">
-                <span class="material-symbols-outlined text-xs">content_paste</span> Use in Chat
-              </button>
+              <div class="flex items-center gap-1.5">
+                <button onclick="insertSuggestedQuestion(${JSON.stringify(qText)})" 
+                  class="flex-1 py-1 px-2 rounded-lg bg-primary text-on-primary hover:bg-primary-dim text-[10px] font-bold transition-colors flex items-center justify-center gap-1">
+                  <span class="material-symbols-outlined text-xs">content_paste</span> Use in Chat
+                </button>
+                <button onclick="toggleQuestionStatus('${qId}', 'dismiss')" title="Dismiss"
+                  class="p-1 rounded-lg bg-surface-container-high hover:bg-error/10 hover:text-error text-on-surface-variant text-[10px]">
+                  <span class="material-symbols-outlined text-xs">close</span>
+                </button>
+              </div>
             </div>
           `;
         }).join('');
@@ -1354,7 +1478,22 @@
           `;
         }).join('');
       } else {
-        actElem.innerHTML = '<p class="italic text-[11px] text-on-surface-variant">No active action items.</p>';
+        actElem.innerHTML = '<p class="italic text-[11px] text-on-surface-variant">No action items active.</p>';
+      }
+    }
+
+    // Session Timeline
+    const timeElem = document.getElementById('copilotTimeline');
+    if (timeElem) {
+      if (copilot.timeline && copilot.timeline.length > 0) {
+        timeElem.innerHTML = copilot.timeline.map(tl => `
+          <div class="flex items-center justify-between p-1.5 rounded-lg bg-surface-container-low border border-outline-variant/10 text-[11px]">
+            <span class="font-mono text-[10px] text-primary font-bold">${escHtml(tl.timeStr || '')}</span>
+            <span class="font-medium text-on-surface truncate ml-2 flex-1">${escHtml(tl.title)}</span>
+          </div>
+        `).join('');
+      } else {
+        timeElem.innerHTML = '<p class="italic text-[11px] text-on-surface-variant">Session timeline initializing...</p>';
       }
     }
   }
@@ -1368,12 +1507,29 @@
     }
   }
 
+  async function toggleCopilotLivePause() {
+    if (!user || user.role !== 'mentor') return;
+    try {
+      const activeSessionId = sessionId || roomId;
+      const res = await fetch(`/api/copilot/session/${activeSessionId}/toggle-live`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.copilot) copilotStore.merge(data.copilot);
+      }
+    } catch (err) {
+      console.error('[COPILOT] Toggle live error:', err);
+    }
+  }
+
   async function refreshCopilotAnalysis() {
     if (!user || user.role !== 'mentor') return;
     const btn = document.getElementById('copilotRefreshBtn');
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">refresh</span> Analyzing...';
+      btn.innerHTML = '<span class="material-symbols-outlined text-xs animate-spin">refresh</span> Refreshed';
     }
 
     try {
@@ -1384,17 +1540,14 @@
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.copilot) {
-          currentCopilotData = data.copilot;
-          renderCopilotState(data.copilot);
-        }
+        if (data.copilot) copilotStore.merge(data.copilot);
       }
     } catch (err) {
       console.error('[COPILOT] Refresh error:', err);
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-outlined text-sm">refresh</span> Refresh';
+        btn.innerHTML = '<span class="material-symbols-outlined text-xs">refresh</span> Refresh';
       }
     }
   }
@@ -1413,13 +1566,139 @@
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.copilot) {
-          currentCopilotData = data.copilot;
-          renderCopilotState(data.copilot);
-        }
+        if (data.copilot) copilotStore.merge(data.copilot);
       }
     } catch (err) {
       console.error('[COPILOT] Action item toggle error:', err);
+    }
+  }
+
+  async function toggleQuestionStatus(qId, action) {
+    if (!user || user.role !== 'mentor') return;
+    try {
+      const activeSessionId = sessionId || roomId;
+      const bodyPayload = action === 'dismiss' ? { dismissed: true } : { used: true };
+      const res = await fetch(`/api/copilot/session/${activeSessionId}/questions/${qId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(bodyPayload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.copilot) copilotStore.merge(data.copilot);
+      }
+    } catch (err) {
+      console.error('[COPILOT] Question status toggle error:', err);
+    }
+  }
+
+  // Quick Feature Modals (Ask Next / Catch Me Up / What Changed)
+  function openQuickModal(title, contentHtml) {
+    const modal = document.getElementById('copilotQuickModal');
+    const titleElem = document.getElementById('copilotQuickModalTitle');
+    const contentElem = document.getElementById('copilotQuickModalContent');
+
+    if (titleElem) titleElem.innerHTML = `<span class="material-symbols-outlined text-primary">auto_awesome</span> ${title}`;
+    if (contentElem) contentElem.innerHTML = contentHtml;
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  function closeCopilotQuickModal() {
+    const modal = document.getElementById('copilotQuickModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  async function triggerAskNext() {
+    if (!user || user.role !== 'mentor') return;
+    openQuickModal('Ask Next Suggestions', '<p class="italic text-on-surface-variant flex items-center gap-2"><span class="material-symbols-outlined text-sm animate-spin">refresh</span> Generating 1-3 targeted follow-up questions...</p>');
+
+    try {
+      const activeSessionId = sessionId || roomId;
+      const res = await fetch(`/api/copilot/session/${activeSessionId}/ask-next`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const questions = data.questions || [];
+        if (questions.length > 0) {
+          const html = questions.map(q => `
+            <div class="p-3 rounded-xl bg-primary-container/30 border border-primary/20 space-y-2">
+              <p class="font-bold text-on-surface text-xs">"${escHtml(q.question)}"</p>
+              ${q.reason ? `<p class="text-[10px] text-on-surface-variant italic">${escHtml(q.reason)}</p>` : ''}
+              <button onclick="insertSuggestedQuestion(${JSON.stringify(q.question)}); closeCopilotQuickModal();" 
+                class="w-full py-1.5 px-3 rounded-lg bg-primary text-on-primary hover:bg-primary-dim font-bold text-xs flex items-center justify-center gap-1">
+                <span class="material-symbols-outlined text-xs">content_paste</span> Use Question in Input
+              </button>
+            </div>
+          `).join('');
+          openQuickModal('Ask Next Suggestions', html);
+        } else {
+          openQuickModal('Ask Next Suggestions', '<p class="italic">No specific follow-up questions generated right now.</p>');
+        }
+      }
+    } catch (err) {
+      openQuickModal('Ask Next Suggestions', `<p class="text-error">Error: ${escHtml(err.message)}</p>`);
+    }
+  }
+
+  async function triggerCatchUp() {
+    if (!user || user.role !== 'mentor') return;
+    openQuickModal('Catch Me Up', '<p class="italic text-on-surface-variant flex items-center gap-2"><span class="material-symbols-outlined text-sm animate-spin">refresh</span> Generating concise catch-up briefing...</p>');
+
+    try {
+      const activeSessionId = sessionId || roomId;
+      const res = await fetch(`/api/copilot/session/${activeSessionId}/catch-up`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        openQuickModal('Catch Me Up Briefing', `
+          <div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/15 leading-relaxed text-xs">
+            ${formatMessageText(data.catchUpText || 'No catch-up summary available.')}
+          </div>
+        `);
+      }
+    } catch (err) {
+      openQuickModal('Catch Me Up', `<p class="text-error">Error: ${escHtml(err.message)}</p>`);
+    }
+  }
+
+  async function triggerWhatChanged() {
+    if (!user || user.role !== 'mentor') return;
+    openQuickModal('What Changed?', '<p class="italic text-on-surface-variant flex items-center gap-2"><span class="material-symbols-outlined text-sm animate-spin">refresh</span> Loading delta analysis...</p>');
+
+    try {
+      const activeSessionId = sessionId || roomId;
+      const res = await fetch(`/api/copilot/session/${activeSessionId}/what-changed`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const changes = data.changes || [];
+        if (changes.length > 0) {
+          const html = `
+            <ul class="space-y-2 text-xs">
+              ${changes.map(c => `
+                <li class="p-2.5 rounded-xl bg-surface-container-low border border-outline-variant/10 flex items-start gap-2">
+                  <span class="material-symbols-outlined text-primary text-base">published_with_changes</span>
+                  <span>${escHtml(typeof c === 'string' ? c : c.text)}</span>
+                </li>
+              `).join('')}
+            </ul>
+          `;
+          openQuickModal('What Changed?', html);
+        } else {
+          openQuickModal('What Changed?', '<p class="italic">No significant state delta since last analysis.</p>');
+        }
+      }
+    } catch (err) {
+      openQuickModal('What Changed?', `<p class="text-error">Error: ${escHtml(err.message)}</p>`);
     }
   }
 
@@ -1499,10 +1778,16 @@
   window.toggleEmojiPicker = toggleEmojiPicker;
   window.insertEmoji = insertEmoji;
 
-  // Copilot Exports
+  // Copilot Exports (Phase 1 & Phase 2)
   window.toggleCopilotPanel = toggleCopilotPanel;
   window.refreshCopilotAnalysis = refreshCopilotAnalysis;
   window.toggleCopilotActionItem = toggleCopilotActionItem;
+  window.toggleCopilotLivePause = toggleCopilotLivePause;
+  window.toggleQuestionStatus = toggleQuestionStatus;
+  window.triggerAskNext = triggerAskNext;
+  window.triggerCatchUp = triggerCatchUp;
+  window.triggerWhatChanged = triggerWhatChanged;
+  window.closeCopilotQuickModal = closeCopilotQuickModal;
   window.generateCopilotSummary = generateCopilotSummary;
   window.closeCopilotSummaryModal = closeCopilotSummaryModal;
   window.insertSuggestedQuestion = insertSuggestedQuestion;

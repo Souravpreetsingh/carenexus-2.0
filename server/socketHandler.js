@@ -5,6 +5,7 @@ const Session = require('./models/Session');
 const User = require('./models/User');
 const notificationService = require('./services/notificationService');
 const safetyService = require('./services/safetyService');
+const copilotLiveEngine = require('./services/copilotLiveEngine');
 const JWT_SECRET = process.env.JWT_SECRET || 'carenexus_jwt_secret_key_2026';
 
 function setupSocketIO(io) {
@@ -279,6 +280,10 @@ function setupSocketIO(io) {
             }).catch(e => console.error('[SOCKET] Notification trigger error:', e.message));
           }
         }
+
+        // Trigger Phase 2 Live Copilot Analysis Buffer
+        copilotLiveEngine.onNewMessage(canonicalMessage.sessionId, canonicalMessage._id, canonicalMessage.senderRole, io)
+          .catch(e => console.error('[SOCKET] Copilot live buffer error:', e.message));
 
         console.log(`[CHAT-V2] broadcast complete for message: ${canonicalMessage._id}`);
 

@@ -203,43 +203,103 @@
   </div>
 
   <!-- Right AI Mentor Copilot Sidebar (Private to Mentors) -->
-  <aside id="mentorCopilotPanel" class="hidden w-80 md:w-96 bg-surface-container-lowest/95 backdrop-blur-xl border border-primary/20 rounded-2xl shadow-xl p-4 flex flex-col overflow-y-auto hide-scrollbar z-30 gap-4 transition-all">
+  <aside id="mentorCopilotPanel" class="hidden w-80 md:w-96 bg-surface-container-lowest/95 backdrop-blur-xl border border-primary/20 rounded-2xl shadow-xl p-4 flex flex-col overflow-y-auto hide-scrollbar z-30 gap-3.5 transition-all">
     <!-- Copilot Header -->
-    <div class="flex items-center justify-between border-b border-outline-variant/15 pb-3">
+    <div class="flex items-center justify-between border-b border-outline-variant/15 pb-2.5">
       <div class="flex items-center gap-2">
         <span class="material-symbols-outlined text-primary text-xl">smart_toy</span>
         <h3 class="font-headline font-bold text-on-surface text-sm">AI Mentor Copilot</h3>
         <span class="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">Private</span>
       </div>
-      <button onclick="toggleCopilotPanel()" title="Close Copilot" class="p-1 text-on-surface-variant hover:text-on-surface">
-        <span class="material-symbols-outlined text-base">close</span>
+      <div class="flex items-center gap-1">
+        <button onclick="toggleCopilotLivePause()" id="copilotLiveToggleBtn" title="Pause / Resume Live Intelligence"
+          class="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 text-[10px] font-bold border border-emerald-500/20 flex items-center gap-1 transition-colors">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+          <span id="copilotLiveBadgeText">● LIVE</span>
+        </button>
+        <button onclick="toggleCopilotPanel()" title="Close Copilot" class="p-1 text-on-surface-variant hover:text-on-surface">
+          <span class="material-symbols-outlined text-base">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Status Banner -->
+    <div class="flex items-center justify-between text-[11px] bg-surface-container-low px-3 py-1.5 rounded-xl border border-outline-variant/10">
+      <span id="copilotAnalysisStatusText" class="text-on-surface-variant font-medium italic">Listening for conversation updates...</span>
+      <button onclick="refreshCopilotAnalysis()" id="copilotRefreshBtn" title="Manual Refresh"
+        class="px-2 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 font-bold transition-colors flex items-center gap-1 text-[10px]">
+        <span class="material-symbols-outlined text-xs">refresh</span> Refresh
       </button>
     </div>
 
-    <!-- Current Topic Badge -->
-    <div class="bg-surface-container-low p-3 rounded-xl border border-outline-variant/15 flex items-center justify-between">
-      <div>
-        <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">Current Topic</span>
-        <span id="copilotTopic" class="text-xs font-bold text-primary">Analyzing session...</span>
+    <!-- Live Snapshot Card -->
+    <div class="bg-primary-container/20 border border-primary/20 p-3 rounded-xl space-y-1.5 text-xs">
+      <div class="flex items-center justify-between">
+        <span class="text-[10px] font-bold text-primary uppercase tracking-wider">LIVE SNAPSHOT</span>
+        <span id="copilotTopicConfidence" class="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-mono font-bold">92% Match</span>
       </div>
-      <button onclick="refreshCopilotAnalysis()" id="copilotRefreshBtn" title="Refresh Analysis"
-        class="px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 text-xs font-bold transition-colors flex items-center gap-1">
-        <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+      <div>
+        <span class="font-bold text-on-surface block text-[11px]">Current Topic:</span>
+        <span id="copilotTopic" class="text-primary font-bold text-xs block">Analyzing session...</span>
+      </div>
+      <div>
+        <span class="font-bold text-on-surface block text-[10px]">User Goal:</span>
+        <p id="copilotSnapshotGoal" class="text-on-surface-variant italic text-[11px]">Identifying member goals...</p>
+      </div>
+      <div>
+        <span class="font-bold text-on-surface block text-[10px]">Unresolved Focus:</span>
+        <p id="copilotSnapshotUnresolved" class="text-on-surface-variant text-[11px]">Exploring session context...</p>
+      </div>
+    </div>
+
+    <!-- Quick Intelligence Actions Bar -->
+    <div class="grid grid-cols-3 gap-1.5">
+      <button onclick="triggerAskNext()" id="askNextBtn"
+        class="py-1.5 px-2 rounded-xl bg-teal-600 text-white hover:bg-teal-700 font-bold text-[11px] transition-all flex items-center justify-center gap-1 shadow-xs">
+        <span class="material-symbols-outlined text-xs">tips_and_updates</span> Ask Next
+      </button>
+      <button onclick="triggerCatchUp()" id="catchUpBtn"
+        class="py-1.5 px-2 rounded-xl bg-surface-container-high hover:bg-surface-container text-on-surface font-bold text-[11px] transition-all flex items-center justify-center gap-1 border border-outline-variant/15">
+        <span class="material-symbols-outlined text-xs">summarize</span> Catch Me Up
+      </button>
+      <button onclick="triggerWhatChanged()" id="whatChangedBtn"
+        class="py-1.5 px-2 rounded-xl bg-surface-container-high hover:bg-surface-container text-on-surface font-bold text-[11px] transition-all flex items-center justify-center gap-1 border border-outline-variant/15">
+        <span class="material-symbols-outlined text-xs">published_with_changes</span> What Changed?
       </button>
     </div>
 
     <!-- Key Points Section -->
-    <div class="space-y-2">
+    <div class="space-y-1.5">
       <h4 class="text-xs font-bold text-on-surface flex items-center gap-1.5">
         <span class="material-symbols-outlined text-primary text-base">format_list_bulleted</span> Key Points
       </h4>
       <div id="copilotKeyPoints" class="space-y-1.5 text-xs text-on-surface-variant">
-        <p class="italic text-[11px]">Click refresh to analyze recent context.</p>
+        <p class="italic text-[11px]">No key points registered yet.</p>
+      </div>
+    </div>
+
+    <!-- User Goals Tracking Section -->
+    <div class="space-y-1.5">
+      <h4 class="text-xs font-bold text-on-surface flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-primary text-base">flag</span> Tracked User Goals
+      </h4>
+      <div id="copilotUserGoals" class="space-y-1.5 text-xs text-on-surface-variant">
+        <p class="italic text-[11px]">No user goals detected yet.</p>
+      </div>
+    </div>
+
+    <!-- Unresolved Topics Section -->
+    <div class="space-y-1.5">
+      <h4 class="text-xs font-bold text-on-surface flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-amber-600 text-base">help_outline</span> Unresolved Topics
+      </h4>
+      <div id="copilotUnresolvedTopics" class="space-y-1.5 text-xs text-on-surface-variant">
+        <p class="italic text-[11px]">No unresolved topics flagged.</p>
       </div>
     </div>
 
     <!-- Suggested Questions Section -->
-    <div class="space-y-2">
+    <div class="space-y-1.5">
       <h4 class="text-xs font-bold text-on-surface flex items-center gap-1.5">
         <span class="material-symbols-outlined text-primary text-base">quiz</span> Suggested Questions
       </h4>
@@ -249,12 +309,22 @@
     </div>
 
     <!-- Interactive Action Items -->
-    <div class="space-y-2">
+    <div class="space-y-1.5">
       <h4 class="text-xs font-bold text-on-surface flex items-center gap-1.5">
         <span class="material-symbols-outlined text-primary text-base">check_box</span> Action Items
       </h4>
       <div id="copilotActionItems" class="space-y-1.5 text-xs">
         <p class="italic text-[11px]">No action items active.</p>
+      </div>
+    </div>
+
+    <!-- Topic Evolution Timeline -->
+    <div class="space-y-1.5">
+      <h4 class="text-xs font-bold text-on-surface flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-primary text-base">timeline</span> Session Timeline
+      </h4>
+      <div id="copilotTimeline" class="space-y-1 text-[11px]">
+        <p class="italic text-[11px] text-on-surface-variant">Session timeline initializing...</p>
       </div>
     </div>
 
@@ -858,6 +928,26 @@ function toggleCamera() {
     </div>
     <div class="flex justify-end gap-2 border-t border-outline-variant/15 pt-3">
       <button onclick="closeCopilotSummaryModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-on-surface-variant bg-surface-container hover:bg-surface-container-high transition-colors">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI Mentor Copilot Quick Feature Modal (Ask Next / Catch Me Up / What Changed) -->
+<div id="copilotQuickModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  <div class="bg-surface-container-lowest border border-outline-variant/20 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+    <div class="flex items-center justify-between border-b border-outline-variant/15 pb-3">
+      <h4 id="copilotQuickModalTitle" class="font-headline font-bold text-on-surface text-base flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">auto_awesome</span> Copilot Feature
+      </h4>
+      <button onclick="closeCopilotQuickModal()" class="p-1 text-on-surface-variant hover:text-on-surface">
+        <span class="material-symbols-outlined text-base">close</span>
+      </button>
+    </div>
+    <div id="copilotQuickModalContent" class="space-y-3 text-xs text-on-surface">
+      <p class="italic text-on-surface-variant">Loading intelligence...</p>
+    </div>
+    <div class="flex justify-end gap-2 border-t border-outline-variant/15 pt-3">
+      <button onclick="closeCopilotQuickModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-on-surface-variant bg-surface-container hover:bg-surface-container-high transition-colors">Close</button>
     </div>
   </div>
 </div>

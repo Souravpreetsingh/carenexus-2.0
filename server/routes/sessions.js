@@ -241,6 +241,8 @@ router.get('/my', auth, async (req, res) => {
   }
 });
 
+const sessionIntelligenceService = require('../services/sessionIntelligenceService');
+
 // Complete a session
 router.post('/:id/complete', auth, async (req, res) => {
   try {
@@ -252,6 +254,12 @@ router.post('/:id/complete', auth, async (req, res) => {
     session.status = 'completed';
     session.completedAt = new Date();
     await session.save();
+
+    // Trigger post-session intelligence generation asynchronously (non-blocking)
+    sessionIntelligenceService.generateForSession(session._id).catch(err => {
+      console.error('[INTELLIGENCE] Async generation error post-session complete:', err.message);
+    });
+
     res.json({ session, message: 'Session completed.' });
   } catch (err) {
     res.status(500).json({ message: err.message });

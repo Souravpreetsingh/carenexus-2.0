@@ -123,6 +123,77 @@
   </div>
 </div>
 
+<!-- Completed Session Intelligence Report Card -->
+<div id="sessionIntelligenceBanner" class="hidden w-full max-w-6xl mx-auto px-4 mb-4">
+  <div class="bg-surface-container-lowest border border-primary/20 rounded-2xl p-5 shadow-sm space-y-4">
+    <div class="flex items-center justify-between border-b border-outline-variant/15 pb-3">
+      <div class="flex items-center gap-2.5">
+        <span class="material-symbols-outlined text-primary text-xl">auto_awesome</span>
+        <h3 class="font-headline font-bold text-on-surface text-base">Session Intelligence Report</h3>
+        <span id="sessionIntelVersionBadge" class="bg-primary/10 text-primary text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-primary/20">Version 1</span>
+      </div>
+      <div class="flex items-center gap-2" id="sessionIntelActionBtns"></div>
+    </div>
+
+    <!-- Summary & Key Topics -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+      <div class="md:col-span-2 space-y-1.5 bg-primary-container/10 p-3.5 rounded-xl border border-primary/15">
+        <span class="font-bold text-primary block text-[11px] uppercase tracking-wider">SESSION SUMMARY</span>
+        <p id="intelSummaryText" class="text-on-surface leading-relaxed text-xs">Loading session summary...</p>
+      </div>
+      <div class="space-y-1.5 bg-surface-container-low p-3.5 rounded-xl border border-outline-variant/15">
+        <span class="font-bold text-on-surface block text-[11px] uppercase tracking-wider">KEY TOPICS</span>
+        <div id="intelTopicsList" class="flex flex-wrap gap-1">
+          <span class="text-on-surface-variant italic text-[11px]">Loading topics...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Goals & Action Items -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+      <div class="space-y-2 bg-surface-container-low p-3.5 rounded-xl border border-outline-variant/15">
+        <span class="font-bold text-on-surface block text-[11px] uppercase tracking-wider">USER GOALS</span>
+        <div id="intelGoalsList" class="space-y-1.5"></div>
+      </div>
+      <div class="space-y-2 bg-surface-container-low p-3.5 rounded-xl border border-outline-variant/15">
+        <span class="font-bold text-on-surface block text-[11px] uppercase tracking-wider">ACTION PLAN</span>
+        <div id="intelActionItemsList" class="space-y-1.5"></div>
+      </div>
+    </div>
+
+    <!-- Progress Signals & Unresolved Focus -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+      <div class="space-y-1.5 bg-surface-container-low p-3 rounded-xl border border-outline-variant/15">
+        <span class="font-bold text-on-surface block text-[10px] uppercase tracking-wider">PROGRESS SIGNALS</span>
+        <div id="intelProgressSignalsList" class="space-y-1 text-on-surface-variant"></div>
+      </div>
+      <div class="space-y-1.5 bg-surface-container-low p-3 rounded-xl border border-outline-variant/15">
+        <span class="font-bold text-on-surface block text-[10px] uppercase tracking-wider">UNRESOLVED FOCUS</span>
+        <div id="intelUnresolvedList" class="space-y-1 text-on-surface-variant"></div>
+      </div>
+    </div>
+
+    <!-- Private Mentor Notes Section (MENTOR ONLY) -->
+    <div id="intelMentorNotesSection" class="hidden border-t border-outline-variant/15 pt-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-amber-600 text-sm">lock</span>
+          <span class="font-bold text-on-surface text-xs">PRIVATE MENTOR NOTES</span>
+          <span class="text-[9px] font-bold text-amber-700 bg-amber-500/10 px-2 py-0.5 rounded-full">Only Visible to You</span>
+        </div>
+      </div>
+      <div id="intelMentorNotesList" class="space-y-2"></div>
+      <div class="flex items-center gap-2 pt-1">
+        <input type="text" id="intelNewNoteInput" placeholder="Add confidential mentor note..." class="flex-1 px-3 py-1.5 text-xs rounded-xl bg-surface-container-high border border-outline-variant/20 focus:outline-none focus:ring-1 focus:ring-primary" />
+        <button onclick="saveIntelMentorNote()" class="px-3 py-1.5 rounded-xl bg-primary text-on-primary font-bold text-xs hover:bg-primary-dim transition-colors flex items-center gap-1">
+          <span class="material-symbols-outlined text-xs">save</span> Save Note
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- Real-Time AI Crisis Safety Escalation Banner -->
 <div id="crisisBanner" class="hidden w-full max-w-6xl mx-auto px-4 mb-3">
   <div class="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">

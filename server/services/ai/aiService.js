@@ -88,11 +88,23 @@ async function generateSessionSummary(messages = [], options = {}) {
   }
 }
 
+async function generateSessionIntelligence(messages = [], liveCopilotState = {}, previousIntelligence = null, options = {}) {
+  try {
+    const cleanMessages = sanitizeAndLimitMessages(messages);
+    const provider = getActiveProvider();
+    return await provider.generateSessionIntelligence(cleanMessages, liveCopilotState, previousIntelligence, options);
+  } catch (err) {
+    console.error('[AI-SERVICE] generateSessionIntelligence error:', err.message);
+    return await mockProvider.generateSessionIntelligence(messages, liveCopilotState, previousIntelligence, options);
+  }
+}
+
 module.exports = {
   analyzeSessionContext,
   analyzeLiveContext,
   generateAskNext,
   generateCatchUp,
   generateWhatChanged,
-  generateSessionSummary
+  generateSessionSummary,
+  generateSessionIntelligence
 };

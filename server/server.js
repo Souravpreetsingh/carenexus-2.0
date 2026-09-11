@@ -78,6 +78,8 @@ const questRoutes = require('./routes/quests');
 const notificationRoutes = require('./routes/notifications');
 const safetyRoutes = require('./routes/safety');
 const copilotRoutes = require('./routes/copilot');
+const sessionIntelligenceRoutes = require('./routes/sessionIntelligence');
+const progressRoutes = require('./routes/progress');
 const notificationService = require('./services/notificationService');
 const { analyzeText } = require('./utils/nlpEngine');
 
@@ -92,6 +94,8 @@ app.use('/api/quests', questRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/safety', safetyRoutes);
 app.use('/api/copilot', copilotRoutes);
+app.use('/api/session-intelligence', sessionIntelligenceRoutes);
+app.use('/api/progress', progressRoutes);
 
 // Serve frontend for all non-API routes
 app.get('*', (req, res) => {

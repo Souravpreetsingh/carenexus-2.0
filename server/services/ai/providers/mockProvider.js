@@ -321,11 +321,103 @@ async function generateSummary(messages = [], options = {}) {
   };
 }
 
+async function generateSessionIntelligence(messages = [], liveCopilotState = {}, previousIntelligence = null, options = {}) {
+  const liveRes = await analyzeLiveContext(messages, liveCopilotState, options);
+  const userMsgs = messages.filter(m => m && m.senderRole === 'user');
+
+  const summary = userMsgs.length > 0
+    ? `The conversation focused on ${liveRes.currentTopic.toLowerCase()} and exploring practical ways to build consistency. The user discussed personal challenges and expressed intentions for ongoing support.`
+    : `The support session concluded with focus on ${liveRes.currentTopic.toLowerCase()}.`;
+
+  const keyTopics = [
+    { topic: liveRes.currentTopic || 'General Support', sourceMessageIds: [] },
+    { topic: 'Consistency & Routine', sourceMessageIds: [] }
+  ];
+
+  const goals = (liveRes.userGoals && liveRes.userGoals.length > 0)
+    ? liveRes.userGoals.map((g, idx) => ({
+        id: g.id || `g_${Date.now()}_${idx}`,
+        text: g.text || 'Improve daily routine',
+        status: g.status || 'ACTIVE',
+        sourceMessageIds: g.sourceMessageIds || [],
+        source: 'AI',
+        confidence: g.confidence || 0.9,
+        createdAt: new Date()
+      }))
+    : [{
+        id: `g_${Date.now()}_1`,
+        text: 'Develop a manageable daily routine',
+        status: 'ACTIVE',
+        sourceMessageIds: [],
+        source: 'AI',
+        confidence: 0.9,
+        createdAt: new Date()
+      }];
+
+  const actionItems = (liveRes.actionItems && liveRes.actionItems.length > 0)
+    ? liveRes.actionItems.map((a, idx) => ({
+        id: a.id || `act_${Date.now()}_${idx}`,
+        text: typeof a === 'string' ? a : a.text,
+        status: a.completed ? 'COMPLETED' : 'OPEN',
+        sourceMessageIds: a.sourceMessageIds || [],
+        source: 'AI',
+        dueAt: null,
+        completedAt: a.completed ? new Date() : null,
+        createdAt: new Date()
+      }))
+    : [{
+        id: `act_${Date.now()}_1`,
+        text: 'Review progress on daily routine before next session',
+        status: 'OPEN',
+        sourceMessageIds: [],
+        source: 'AI',
+        dueAt: null,
+        completedAt: null,
+        createdAt: new Date()
+      }];
+
+  const followUpSuggestions = (liveRes.suggestedQuestions && liveRes.suggestedQuestions.length > 0)
+    ? liveRes.suggestedQuestions.map(q => ({
+        text: typeof q === 'string' ? q : q.question,
+        sourceMessageIds: []
+      }))
+    : [
+        { text: 'Review whether the new routine was sustainable.', sourceMessageIds: [] },
+        { text: 'Explore which workload factors remain difficult.', sourceMessageIds: [] }
+      ];
+
+  const unresolvedAreas = (liveRes.unresolvedTopics && liveRes.unresolvedTopics.length > 0)
+    ? liveRes.unresolvedTopics.map(u => ({ text: u.text }))
+    : [{ text: 'Specific workload changes have not yet been fully explored.' }];
+
+  const progressSignals = [
+    { text: "The conversation indicates increased clarity around the user's stated goal." }
+  ];
+
+  let comparison = {
+    previousSessionId: previousIntelligence ? previousIntelligence.sessionId : null,
+    summary: previousIntelligence ? 'User continues work toward stated goals from prior session.' : 'Initial session completed.',
+    goalStatusSummary: previousIntelligence ? 'Goal remains active and progressing.' : 'Initial goals established.'
+  };
+
+  return {
+    summary,
+    keyTopics,
+    goals,
+    actionItems,
+    followUpSuggestions,
+    unresolvedAreas,
+    progressSignals,
+    comparison
+  };
+}
+
 module.exports = {
   analyzeContext,
   analyzeLiveContext,
   generateAskNext,
   generateCatchUp,
   generateWhatChanged,
-  generateSummary
+  generateSummary,
+  generateSessionIntelligence
 };

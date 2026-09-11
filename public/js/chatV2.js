@@ -1248,7 +1248,207 @@
     const endBtn = document.querySelector('button[onclick*="endSession"]');
     if (endBtn) {
       endBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">arrow_back</span> Dashboard`;
-      endBtn.onclick = () => window.location.href = 'dashboard.html';
+      endBtn.onclick = () => { window.location.href = 'dashboard.html'; };
+    }
+
+    loadSessionIntelligence();
+  }
+
+  async function loadSessionIntelligence() {
+    const activeSessionId = sessionId || roomId;
+    if (!activeSessionId) return;
+
+    const banner = document.getElementById('sessionIntelligenceBanner');
+    try {
+      const res = await fetch(`/api/session-intelligence/${activeSessionId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        renderSessionIntelligence(data.intelligence, data.isMentor);
+        if (banner) banner.classList.remove('hidden');
+      } else {
+        if (banner) banner.classList.add('hidden');
+      }
+    } catch (err) {
+      console.error('[CHAT-V2] Error loading session intelligence:', err.message);
+    }
+  }
+
+  function renderSessionIntelligence(intel, isMentor) {
+    if (!intel) return;
+
+    const versionBadge = document.getElementById('sessionIntelVersionBadge');
+    if (versionBadge) versionBadge.textContent = `Version ${intel.generationVersion || 1}`;
+
+    const actionBtnsContainer = document.getElementById('sessionIntelActionBtns');
+    if (actionBtnsContainer && isMentor) {
+      actionBtnsContainer.innerHTML = `
+        <button onclick="regenerateSessionIntelligence()" id="regenIntelBtn"
+          class="px-3 py-1.5 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 font-bold text-xs transition-colors flex items-center gap-1">
+          <span class="material-symbols-outlined text-sm">refresh</span> Regenerate Intelligence
+        </button>
+      `;
+    }
+
+    const summaryElem = document.getElementById('intelSummaryText');
+    if (summaryElem) summaryElem.textContent = intel.summary || 'Session completed.';
+
+    const topicsElem = document.getElementById('intelTopicsList');
+    if (topicsElem) {
+      const topics = intel.keyTopics || [];
+      if (topics.length > 0) {
+        topicsElem.innerHTML = topics.map(t => `
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">${escHtml(typeof t === 'string' ? t : t.topic)}</span>
+        `).join('');
+      } else {
+        topicsElem.innerHTML = '<span class="text-on-surface-variant italic text-[11px]">No specific topics recorded.</span>';
+      }
+    }
+
+    const goalsElem = document.getElementById('intelGoalsList');
+    if (goalsElem) {
+      const goals = intel.goals || [];
+      if (goals.length > 0) {
+        goalsElem.innerHTML = goals.map(g => `
+          <div class="p-2 rounded-lg bg-surface-container-lowest border border-outline-variant/10 flex items-center justify-between">
+            <span class="font-medium text-on-surface text-xs">${escHtml(g.text)}</span>
+            <span class="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary">${escHtml(g.status || 'ACTIVE')}</span>
+          </div>
+        `).join('');
+      } else {
+        goalsElem.innerHTML = '<p class="italic text-[11px] text-on-surface-variant">No active goals extracted.</p>';
+      }
+    }
+
+    const actionElem = document.getElementById('intelActionItemsList');
+    if (actionElem) {
+      const items = intel.actionItems || [];
+      if (items.length > 0) {
+        actionElem.innerHTML = items.map(a => `
+          <div class="p-2 rounded-lg bg-surface-container-lowest border border-outline-variant/10 flex items-center justify-between">
+            <span class="font-medium text-on-surface text-xs ${a.status === 'COMPLETED' ? 'line-through opacity-60' : ''}">${escHtml(typeof a === 'string' ? a : a.text)}</span>
+            <span class="text-[9px] font-bold px-2 py-0.5 rounded-md ${a.status === 'COMPLETED' ? 'bg-surface-container-high text-on-surface-variant' : 'bg-primary-container/40 text-primary'}">${escHtml(a.status || 'OPEN')}</span>
+          </div>
+        `).join('');
+      } else {
+        actionElem.innerHTML = '<p class="italic text-[11px] text-on-surface-variant">No open action items.</p>';
+      }
+    }
+
+    const signalsElem = document.getElementById('intelProgressSignalsList');
+    if (signalsElem) {
+      const signals = intel.progressSignals || [];
+      if (signals.length > 0) {
+        signalsElem.innerHTML = signals.map(s => `
+          <div class="flex items-start gap-1.5 text-xs">
+            <span class="material-symbols-outlined text-primary text-sm mt-0.5">trending_up</span>
+            <span>${escHtml(typeof s === 'string' ? s : s.text)}</span>
+          </div>
+        `).join('');
+      } else {
+        signalsElem.innerHTML = '<p class="italic text-[11px]">No progress signals recorded.</p>';
+      }
+    }
+
+    const unresElem = document.getElementById('intelUnresolvedList');
+    if (unresElem) {
+      const unres = intel.unresolvedAreas || [];
+      if (unres.length > 0) {
+        unresElem.innerHTML = unres.map(u => `
+          <div class="flex items-start gap-1.5 text-xs">
+            <span class="material-symbols-outlined text-amber-600 text-sm mt-0.5">help_outline</span>
+            <span>${escHtml(typeof u === 'string' ? u : u.text)}</span>
+          </div>
+        `).join('');
+      } else {
+        unresElem.innerHTML = '<p class="italic text-[11px]">No unresolved focus areas.</p>';
+      }
+    }
+
+    // Render Private Mentor Notes ONLY if user is mentor and field exists
+    const notesSection = document.getElementById('intelMentorNotesSection');
+    if (notesSection) {
+      if (isMentor && Array.isArray(intel.mentorNotes)) {
+        notesSection.classList.remove('hidden');
+        renderIntelMentorNotes(intel.mentorNotes);
+      } else {
+        notesSection.classList.add('hidden');
+      }
+    }
+  }
+
+  function renderIntelMentorNotes(notes) {
+    const listElem = document.getElementById('intelMentorNotesList');
+    if (!listElem) return;
+
+    if (!notes || notes.length === 0) {
+      listElem.innerHTML = '<p class="italic text-[11px] text-on-surface-variant">No private mentor notes saved yet.</p>';
+      return;
+    }
+
+    listElem.innerHTML = notes.map(n => `
+      <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-1">
+        <p class="text-xs font-medium text-on-surface leading-relaxed">${escHtml(n.text)}</p>
+        <span class="text-[9px] text-on-surface-variant font-mono block">${new Date(n.createdAt || Date.now()).toLocaleString()}</span>
+      </div>
+    `).join('');
+  }
+
+  async function saveIntelMentorNote() {
+    const activeSessionId = sessionId || roomId;
+    const input = document.getElementById('intelNewNoteInput');
+    if (!activeSessionId || !input || !input.value.trim()) return;
+
+    const text = input.value.trim();
+    try {
+      const res = await fetch(`/api/session-intelligence/${activeSessionId}/mentor-notes`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ text })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        input.value = '';
+        renderIntelMentorNotes(data.mentorNotes || []);
+      }
+    } catch (err) {
+      console.error('[CHAT-V2] Error saving mentor note:', err.message);
+    }
+  }
+
+  async function regenerateSessionIntelligence() {
+    const activeSessionId = sessionId || roomId;
+    if (!activeSessionId) return;
+
+    const btn = document.getElementById('regenIntelBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">refresh</span> Regenerating...';
+    }
+
+    try {
+      const res = await fetch(`/api/session-intelligence/${activeSessionId}/regenerate`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        renderSessionIntelligence(data.intelligence, true);
+      }
+    } catch (err) {
+      console.error('[CHAT-V2] Error regenerating session intelligence:', err.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined text-sm">refresh</span> Regenerate Intelligence';
+      }
     }
   }
 
@@ -1817,6 +2017,8 @@
   window.closeCopilotSummaryModal = closeCopilotSummaryModal;
   window.insertSuggestedQuestion = insertSuggestedQuestion;
   window.handleUseQuestionBtn = handleUseQuestionBtn;
+  window.saveIntelMentorNote = saveIntelMentorNote;
+  window.regenerateSessionIntelligence = regenerateSessionIntelligence;
 
   // Initialize data loading
   checkSessionStatus();
